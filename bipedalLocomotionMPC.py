@@ -14,7 +14,7 @@ x_fb = np.array([0, 0, 0, 0, 0, 0.53, 0, 0, 0, 0, 0, 0])  # States: euler angles
 foot = np.array([0,-0.1,0, 0,0.1,0])
 q = np.array([0,0,-np.pi/4,np.pi/2,-np.pi/4, 0,0,-np.pi/4,np.pi/2,-np.pi/4])
 qd = np.zeros((10))
-t = 0.01
+t = 0
 gait = 1 # standing = 0; walking = 1;
 
 ################## functions #####################
@@ -50,58 +50,12 @@ class Biped:
 def get_contact_sequence(t, mpc):
     # Default contact sequence
     contact = np.array([
-        [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+        [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     ]).T
-
     phase = int(t // mpc.dt)  # Calculate the phase
     k = phase % mpc.h  # Remainder of phase divided by ctrl.mpc.h
-
-    if k == 1:
-        contact = np.array([
-            [1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
-            [0, 0, 0, 0, 1, 1, 1, 1, 1, 0]
-        ]).T
-    elif k == 2:
-        contact = np.array([
-            [1, 1, 1, 0, 0, 0, 0, 0, 1, 1],
-            [0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
-        ]).T
-    elif k == 3:
-        contact = np.array([
-            [1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
-            [0, 0, 1, 1, 1, 1, 1, 0, 0, 0]
-        ]).T
-    elif k == 4:
-        contact = np.array([
-            [1, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-            [0, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-        ]).T
-    elif k == 5:
-        contact = np.array([
-            [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 0, 0]
-        ]).T
-    elif k == 6:
-        contact = np.array([
-            [0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
-            [1, 1, 1, 1, 0, 0, 0, 0, 0, 1]
-        ]).T
-    elif k == 7:
-        contact = np.array([
-            [0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
-            [1, 1, 1, 0, 0, 0, 0, 0, 1, 1]
-        ]).T
-    elif k == 8:
-        contact = np.array([
-            [0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
-            [1, 1, 0, 0, 0, 0, 0, 1, 1, 1]
-        ]).T
-    elif k == 9:
-        contact = np.array([
-            [0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-            [1, 0, 0, 0, 0, 0, 1, 1, 1, 1]
-        ]).T
+    contact = contact[k:k+10, :]
     return contact
 
 def get_reference_trajectory(x_fb, mpc):
@@ -532,7 +486,7 @@ elif gait == 0:
 start_time = time.time()
 states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
 end_time = time.time()
-print(f"Function execution time: {end_time - start_time} seconds")
+print(f"MPC Function execution time: {end_time - start_time} seconds")
 print("States: \n", states)
 print("Controls: \n", controls)
 # low level force-to-torque
