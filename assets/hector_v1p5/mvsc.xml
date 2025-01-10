@@ -1,0 +1,203 @@
+<mujoco model="mvsc">
+  <compiler angle="radian" meshdir="./meshes/"/>
+  <!-- <option timestep='0.001'/> -->
+  <option timestep='0.001' o_solref='-100000 -1000' >
+		<flag override='enable' />
+	</option>
+  <default>
+    <default class="a1_actuator">
+      <general biastype="affine" gainprm="30.0 0 0 0 0 0 0 0 0 0" biasprm="0 -30.0 -0.5 0 0 0 0 0 0 0" forcerange="-33.5 33.5"/>
+    </default>
+    <default class="imu">
+      <site type="box" size="0.01 0.008 0.0015" rgba="1 0 0 0" />
+    </default>
+  </default>
+  <asset>
+    <mesh name="base_visuals" file="base_visuals.obj"/>
+    <mesh name="l_calf_visuals" file="l_calf_visuals.obj"/>
+    <mesh name="l_hip_visuals" file="l_hip_visuals.obj"/>
+    <mesh name="l_hip2_visuals" file="l_hip2_visuals.obj"/>
+    <mesh name="l_thigh_visuals" file="l_thigh_visuals.obj"/>
+    <mesh name="l_toe_visuals" file="l_toe_visuals.obj"/>
+    <mesh name="r_calf_visuals" file="r_calf_visuals.obj"/>
+    <mesh name="r_hip_visuals" file="r_hip_visuals.obj"/>
+    <mesh name="r_hip2_visuals" file="r_hip2_visuals.obj"/>
+    <mesh name="r_thigh_visuals" file="r_thigh_visuals.obj"/>
+    <mesh name="r_toe_visuals" file="r_toe_visuals.obj"/>
+    <material name="black" rgba="0.2 0.2 0.2 1" />
+    <material name="silver" rgba="0.75 0.75 0.75 1" />
+    <material name="transparent" rgba="0 0 0 0" />
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.5" />
+  </asset>
+  <visual>
+		  <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+		  <rgba haze="0.15 0.25 0.35 1" />
+	    <global offheight="2160" offwidth="3840"/>
+    	<quality offsamples="8"/>
+	</visual>
+  <worldbody>
+    <light name="spotlight0" mode="targetbodycom" target="trunk" pos="0 0 10" cutoff="60" />
+		<light name="spotlight1" mode="targetbodycom" target="trunk" pos="0.5 0 10" cutoff="60" />
+		<geom name="floor" size="0 0 .125" type="plane" material="groundplane" conaffinity="15" condim="3" />
+
+    <!-- <body name="trunk" pos="0 0 1.00"> -->
+    <body name="trunk" pos="0 0 0.55">
+      <freejoint name="root" />
+			<site name="root" class="imu"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="base_visuals" material="black"/>
+      <geom size="0.0625 0.095 0.124" type="box" rgba="0 0 0 0"/>
+			<inertial pos="0.0 0.0 0.0" mass="5.89" diaginertia="0.0479073  0.03785748 0.02538835" />
+      <body name="l_hip" pos="0 0.047 -0.1265">
+				<inertial pos="0.0651881 0.0105682 -0.05877" quat="-0.0733308 0.865238 0.13671 0.476756" mass="0.874" diaginertia="0.00147219 0.00132639 0.000517101" />
+        <joint name="l_hip_yaw_joint" pos="0 0 0" axis="0 0 1" limited="true" range="-0.785398 0.785398" damping="1.0"  armature="0.01" frictionloss="0.2" />
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="l_hip_visuals"  material="black"/>
+        <geom size="5e-05 5e-05 5e-05" pos="0.015 0 -0.002" type="box" material="transparent"/>
+        <geom size="0.045 0.02" pos="0.0708113 0.015 -0.0705" quat="0.707107 0 0.707107 0" type="cylinder" material="transparent"/>
+        <body name="l_hip2" pos="0.0465 0.015 -0.0705">
+					<inertial pos="-0.0565847 -0.0143919 0" quat="0.490371 0.490371 0.509447 0.509447" mass="0.745" diaginertia="0.000770832 0.000552938 0.000493077" />
+          <joint name="l_hip_roll_joint" pos="0 0 0" axis="1 0 0" limited="true" range="-0.785398 0.785398" damping="1.0"  armature="0.01" frictionloss="0.2" />
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="l_hip2_visuals" material="black"/>
+          <geom size="5e-06 5e-06 5e-06" pos="-0.1 0 -6.92e-05" type="box" material="transparent"/>
+          <geom size="0.045 0.02" pos="-0.06 -0.0063264 0" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+          <body name="l_thigh" pos="-0.06 0.018 0" quat="1 0 0 0">
+						<inertial pos="-4.85963e-05 0.0199702 -0.0592828" quat="0.98238 -0.186894 0.000253273 0.000716486" mass="1.942" diaginertia="0.0111784 0.0106783 0.00282909" />
+            <joint name="l_hip_pitch_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="l_thigh_visuals" material="silver"/>
+            <geom size="0.03 0.0175 0.09" pos="0 0.0175 -0.09" type="box" material="transparent"/>
+            <geom size="0.045 0.02" pos="0 0.05842 0" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+            <geom size="0.045 0.02" pos="0 0.05842 -0.095" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+            <body name="l_calf" pos="0 0.018 -0.22" quat="1 0 0 0">
+							<inertial pos="0 0.020417 -0.1141" mass="0.303" diaginertia="0.001911 0.00191038 6.8352e-05" />
+              <joint name="l_knee_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+              <geom pos="0 0.01743 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="l_calf_visuals" material="silver"/>
+              <geom size="0.015 0.09" pos="0 0 -0.11" type="cylinder" material="transparent"/>
+              <!-- <body name="l_toe" pos="0 0 -0.22" quat="0.9876883 0 -0.1564345 0"> -->
+              <body name="l_toe" pos="0 0 -0.22" >
+								<inertial pos="0.010569 0.017949 -0.017118" quat="0.5 0.5 0.5 0.5" mass="0.214" diaginertia="0.000290752 0.000249491 5.7298e-05" />
+                <joint name="l_ankle_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+                <geom pos="3.14e-05 -0.011948 -0.0454603" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="l_toe_visuals" material="silver"/>
+                <geom size="0.075 0.01 0.02" pos="0.01 0 -0.02" type="box" material="transparent"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="r_hip" pos="0 -0.047 -0.1265">
+				<inertial pos="0.0651881 -0.011743 -0.05877" quat="0.054396 0.871604 -0.102394 0.476301" mass="0.874" diaginertia="0.00144737 0.00130361 0.000518878" />
+        <joint name="r_hip_yaw_joint" pos="0 0 0" axis="0 0 1" limited="true" range="-0.785398 0.785398" damping="1.0"  armature="0.01" frictionloss="0.2" />
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="r_hip_visuals" material="black"/>
+        <geom size="5e-05 5e-05 5e-05" pos="0.015 0 -0.002" type="box" material="transparent"/>
+        <geom size="0.045 0.02" pos="0.07081 -0.015 -0.0705" quat="0.707107 0 0.707107 0" type="cylinder" material="transparent"/>
+        <body name="r_hip2" pos="0.0465 -0.015 -0.0705">
+					<inertial pos="-0.0565847 0.0117826 0" quat="0.554078 0.554078 0.439315 0.439315" mass="0.745" diaginertia="0.000783544 0.000603818 0.000531245" />
+          <joint name="r_hip_roll_joint" pos="0 0 0" axis="1 0 0" limited="true" range="-0.785398 0.785398" damping="1.0"  armature="0.01" frictionloss="0.2" />
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="r_hip2_visuals" material="black"/>
+          <geom size="5e-06 5e-06 5e-06" pos="-0.1 0 0" type="box" material="transparent"/>
+          <geom size="0.045 0.02" pos="-0.06 0.00633 0" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+          <body name="r_thigh" pos="-0.06 -0.018 0" quat="1 0 0 0">
+						<inertial pos="-4.85963e-05 -0.0199702 -0.0592828" quat="0.98238 0.186894 0.000253273 -0.000716486" mass="1.942" diaginertia="0.0111784 0.0106783 0.00282909" />
+            <joint name="r_hip_pitch_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="r_thigh_visuals" material="silver"/>
+            <geom size="0.03 0.0175 0.09" pos="0 -0.0175 -0.09" type="box" material="transparent"/>
+            <geom size="0.045 0.02" pos="0 -0.0584229 0" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+            <geom size="0.045 0.02" pos="0 -0.05842 -0.095" quat="0.707107 -0.707107 0 0" type="cylinder" material="transparent"/>
+            <body name="r_calf" pos="0 -0.018 -0.22" quat="1 0 0 0">
+							<inertial pos="0 -0.020417 -0.1141" mass="0.303" diaginertia="0.001911 0.00191038 6.8352e-05" />
+              <joint name="r_knee_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+              <geom pos="0 0.01743 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="r_calf_visuals" material="silver"/>
+              <geom size="0.015 0.09" pos="0 0 -0.11" type="cylinder" material="transparent"/>
+              <!-- <body name="r_toe" pos="0 0 -0.22" quat="0.9876883 0 -0.1564345 0"> -->
+              <body name="r_toe" pos="0 0 -0.22" >
+								<inertial pos="0.010569 -0.017949 -0.017118" quat="0.5 0.5 0.5 0.5" mass="0.214" diaginertia="0.000290752 0.000249491 5.7298e-05" />
+                <joint name="r_ankle_joint" pos="0 0 0" axis="0 1 0" limited="true" range="-3.14 3.14" damping="1.0"  armature="0.01" frictionloss="0.2" />
+                <geom pos="3e-05 -0.01195 -0.04546" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="r_toe_visuals" material="silver"/>
+                <geom size="0.075 0.01 0.02" pos="0.01 0 -0.02" type="box" material="transparent"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <framepos name="torso_pos" objtype="site" objname="root"/>
+    <framequat name="torso_quat" objtype="site" objname="root"/>
+		<accelerometer name="torso_acc" site="root"/>
+		<velocimeter name="torso_vel" site="root"/>
+		<gyro name="torso_gyr" site="root"/>
+
+		<!-- motor encoders -->
+		<actuatorpos name="l_hip_yaw_pos" actuator="l_hip_yaw"/>
+		<actuatorpos name="l_hip_roll_pos" actuator="l_hip_roll"/>
+		<actuatorpos name="l_hip_pitch_pos" actuator="l_hip_pitch"/>
+		<actuatorpos name="l_knee_pos" actuator="l_knee"/>
+		<actuatorpos name="l_ankle_pos" actuator="l_ankle"/>
+
+		<actuatorpos name="r_hip_yaw_pos" actuator="r_hip_yaw"/>
+		<actuatorpos name="r_hip_roll_pos" actuator="r_hip_roll"/>
+		<actuatorpos name="r_hip_pitch_pos" actuator="r_hip_pitch"/>
+		<actuatorpos name="r_knee_pos" actuator="r_knee"/>
+		<actuatorpos name="r_ankle_pos" actuator="r_ankle"/>
+
+		<actuatorvel name="l_hip_yaw_vel" actuator="l_hip_yaw"/>
+		<actuatorvel name="l_hip_roll_vel" actuator="l_hip_roll"/>
+		<actuatorvel name="l_hip_pitch_vel" actuator="l_hip_pitch"/>
+		<actuatorvel name="l_knee_vel" actuator="l_knee"/>
+		<actuatorvel name="l_ankle_vel" actuator="l_ankle"/>
+
+		<actuatorvel name="r_hip_yaw_vel" actuator="r_hip_yaw"/>
+		<actuatorvel name="r_hip_roll_vel" actuator="r_hip_roll"/>
+		<actuatorvel name="r_hip_pitch_vel" actuator="r_hip_pitch"/>
+		<actuatorvel name="r_knee_vel" actuator="r_knee"/>
+		<actuatorvel name="r_ankle_vel" actuator="r_ankle"/>
+
+		<actuatorfrc name="l_hip_yaw_frc" actuator="l_hip_yaw"/>
+		<actuatorfrc name="l_hip_roll_frc" actuator="l_hip_roll"/>
+		<actuatorfrc name="l_hip_pitch_frc" actuator="l_hip_pitch"/>
+		<actuatorfrc name="l_knee_frc" actuator="l_knee"/>
+		<actuatorfrc name="l_ankle_frc" actuator="l_ankle"/>
+
+		<actuatorfrc name="r_hip_yaw_frc" actuator="r_hip_yaw"/>
+		<actuatorfrc name="r_hip_roll_frc" actuator="r_hip_roll"/>
+		<actuatorfrc name="r_hip_pitch_frc" actuator="r_hip_pitch"/>
+		<actuatorfrc name="r_knee_frc" actuator="r_knee"/>
+		<actuatorfrc name="r_ankle_frc" actuator="r_ankle"/>
+	</sensor>
+
+  <actuator>
+		<!-- <general class="a1_actuator" name="l_hip_yaw" joint="l_hip_yaw_joint"  />
+		<general class="a1_actuator" name="l_hip_roll" joint="l_hip_roll_joint"  />
+		<general class="a1_actuator" name="l_hip_pitch" joint="l_hip_pitch_joint" />
+		<general class="a1_actuator" name="l_knee" joint="l_knee_joint" forcerange="-67.0 67.0"   />
+		<general class="a1_actuator" name="l_ankle" joint="l_ankle_joint"  gainprm="15.0 0 0 0 0 0 0 0 0 0" biasprm="0 -15.0 -0.1 0 0 0 0 0 0 0"/> 
+
+		<general class="a1_actuator" name="r_hip_yaw" joint="r_hip_yaw_joint"  />
+		<general class="a1_actuator" name="r_hip_roll" joint="r_hip_roll_joint" />
+		<general class="a1_actuator" name="r_hip_pitch" joint="r_hip_pitch_joint"  />
+		<general class="a1_actuator" name="r_knee" joint="r_knee_joint" forcerange="-67.0 67.0"   />
+		<general class="a1_actuator" name="r_ankle" joint="r_ankle_joint" gainprm="15.0 0 0 0 0 0 0 0 0 0" biasprm="0 -15.0 -0.1 0 0 0 0 0 0 0"/>  -->
+
+		<motor name="l_hip_yaw" joint="l_hip_yaw_joint"  forcerange="-33.5 33.5" />
+		<motor name="l_hip_roll" joint="l_hip_roll_joint"  forcerange="-33.5 33.5" />
+		<motor name="l_hip_pitch" joint="l_hip_pitch_joint" forcerange="-33.5 33.5" />
+		<motor name="l_knee" joint="l_knee_joint" forcerange="-67.0 67.0"   />
+		<motor name="l_ankle" joint="l_ankle_joint"  forcerange="-33.5 33.5" />
+
+		<motor name="r_hip_yaw" joint="r_hip_yaw_joint"  forcerange="-33.5 33.5" />
+		<motor name="r_hip_roll" joint="r_hip_roll_joint" forcerange="-33.5 33.5" />
+		<motor name="r_hip_pitch" joint="r_hip_pitch_joint" forcerange="-33.5 33.5" />
+		<motor name="r_knee" joint="r_knee_joint" forcerange="-67.0 67.0"   />
+		<motor name="r_ankle" joint="r_ankle_joint" forcerange="-33.5 33.5" />
+	</actuator>	
+
+
+	<equality>
+		<weld name="world_root" active="false" body1="trunk" relpose="0 0 -0.55 1 0 0 0"/> 
+	</equality>
+  <keyframe>
+    <key name="home" qpos='0 0 0.55 1 0 0 0 0 0 0.7848373651504517 -1.571472287 0.7848373651504517 0 0 0.7848373651504517 -1.571472287 0.7848373651504517' />
+  </keyframe>
+</mujoco>
