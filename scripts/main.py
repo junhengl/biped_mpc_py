@@ -34,14 +34,18 @@ if __name__ == '__main__':
     # initialize the controller
     mpc = MPC()
     biped = Biped()
+    u0 = np.zeros([12,1])
 
     t = 0
-    gait = 0 # standing = 0; walking = 1;
-    # contact sequence generation
-    if gait == 1:
-        contact = get_contact_sequence(t, mpc)
-    elif gait == 0:
-        contact = np.ones((mpc.h, 2))
+    gait = 1 # standing = 0; walking = 1;
+    # global foot_des_i 
+    global foot_l 
+    global foot_r 
+
+    # foot_des_i = np.zeros([3, 1])
+    # foot_l = np.zeros([3, 1])
+    # foot_r = np.zeros([3, 1])
+    # print('foot l', foot_l)
 
     while True:
         # pretty_print_low_cmd(cmd)
@@ -65,17 +69,27 @@ if __name__ == '__main__':
                                     ])     
             q = jpos
             qd = jvel   
-    
+
+            # contact sequence generation
+            if gait == 1:
+                contact = get_contact_sequence(steps/1000, mpc)
+            elif gait == 0:
+                contact = np.ones((mpc.h, 2))
+            t = steps/1000
+            print('time: ', t)
+
             pf_w = getFootPositionWorld(x_fb, q, biped)
             foot = pf_w.reshape(-1)
-
-            start_time = time.time()
-            states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
-            end_time = time.time()
-            print(f"MPC Function execution time: {end_time - start_time} seconds")
-            print("States: \n", states)
-            print("Controls: \n", controls)
-            u0 = controls[0, :].reshape(-1,1)
+            mpc.x_cmd[3] = (foot[0] + foot[3])/2
+            mpc.x_cmd[4] = (foot[1] + foot[4])/2
+            if np.remainder(steps, mpc.dt*1000/1) == 0:
+                start_time = time.time()
+                states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
+                end_time = time.time()
+                print(f"MPC Function execution time: {end_time - start_time} seconds")
+                print("States: \n", states)
+                print("Controls: \n", controls)
+                u0 = controls[0, :].reshape(-1,1)
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
             print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()

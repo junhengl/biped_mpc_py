@@ -1,6 +1,9 @@
 import numpy as np
 import time
 import cvxopt
+import osqp
+from scipy import sparse
+# import pyqpoases
 np.set_printoptions(suppress=True, precision=2)
 
 # Junheng initial update 01/06/2025
@@ -10,12 +13,12 @@ np.set_printoptions(suppress=True, precision=2)
 # control input (12,): [force and moment] = [f1; f2; m1; m2] 
 
 # Initialize state feedback and parameters
-x_fb = np.array([0, 0, 0, 0, 0, 0.53, 0, 0, 0, 0, 0, 0])  # States: euler angles, positions, angular velocity, linear velocity
+x_fb = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0, 0, 0])  # States: euler angles, positions, angular velocity, linear velocity
 foot = np.array([0,-0.1,0, 0,0.1,0])
 q = np.array([0,0,-np.pi/4,np.pi/2,-np.pi/4, 0,0,-np.pi/4,np.pi/2,-np.pi/4])
 qd = np.zeros((10))
 t = 0
-gait = 1 # standing = 0; walking = 1;
+gait = 0 # standing = 0; walking = 1;
 
 ################## functions #####################
 
@@ -24,27 +27,28 @@ class MPC:
         self.h = 10
         self.dt = 0.04
         self.x_cmd = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0, 0, 0])  # Command
-        self.Q = np.array([500, 100, 100, 300, 300, 700, 1, 1, 1, 1, 1, 1, 1])  # State weights
-        self.R = np.array([1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1]) * 1e-4  # Control input weights
-        self.kv = 0.01
-        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*500
-        self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*10
+        self.Q = np.array([500, 100, 100,  500, 500, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
+        self.R = np.array([1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1]) * 1e-6  # Control input weights
+        self.kv = 0.03
+        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*1000
+        self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*5
         self.swingHeight = 0.1
+        self.y_offset = 0.07
 
 class Biped:
     def __init__(self):
-        self.m = 12  # Mass
-        self.I = np.array([[0.932, 0, 0],
-                          [0, 0.9420, 0],
+        self.m = 10  # Mass
+        self.I = np.array([[0.532, 0, 0],
+                          [0, 0.5420, 0],
                           [0, 0, 0.0711]])  # Inertia
         self.lt = 0.09  # toe length
         self.lh = 0.05  # heel length
         self.g = 9.81  # Gravity
         self.hip_offset = np.array([-0.005, 0.047, -0.126])
-        self.mu = 0.5
-        self.f_max = np.array([[500], [500], [500]])
+        self.mu = 0.4
+        self.f_max = np.array([[250], [250], [250]])
         self.f_min = np.array([[0], [0], [0]])
-        self.tau_max =  np.array([[0], [67], [33.5]])
+        self.tau_max =  np.array([[33.5], [33.5], [33.5]])
         self.tau_min = -self.tau_max
 
 def get_contact_sequence(t, mpc):
@@ -60,9 +64,9 @@ def get_contact_sequence(t, mpc):
 
 def get_reference_trajectory(x_fb, mpc):
     x_ref = np.tile(np.append(mpc.x_cmd, 1), (mpc.h, 1)).T
-    x_ref[:12, 0] = x_fb
+    # x_ref[:12, 0] = x_fb
     for i in range(6):
-        for k in range(1, mpc.h):
+        for k in range(0, mpc.h):
             if mpc.x_cmd[i + 6] != 0:
                 x_ref[i, k] = x_fb[i] + mpc.x_cmd[i + 6] * (k * mpc.dt)
             else:
@@ -81,16 +85,15 @@ def get_reference_foot_trajectory(x_fb, t, foot, mpc, contact):
 
     foot_des_y_1 = (
         x_fb[4] + x_fb[10] * 1 / 2 * mpc.h / 2 * mpc.dt
-        + mpc.kv * (x_fb[4] - mpc.x_cmd[4])
+        + mpc.kv * (x_fb[4] - mpc.x_cmd[4]) 
     )
     foot_des_y_2 = (
-        x_fb[10] + x_fb[10] * 1 / 2 * mpc.h * mpc.dt
-        + mpc.kv * (x_fb[4] - mpc.x_cmd[4])
+        x_fb[4] + x_fb[10] * 1 / 2 * mpc.h * mpc.dt
+        + mpc.kv * (x_fb[4] - mpc.x_cmd[4]) - mpc.y_offset
     )
-
     foot_des_z = 0
-    foot_1 = np.array([foot_des_x_1, foot_des_y_1, foot_des_z, foot_des_x_1, foot_des_y_1, foot_des_z])
-    foot_2 = np.array([foot_des_x_2, foot_des_y_2, foot_des_z, foot_des_x_2, foot_des_y_2, foot_des_z])
+    foot_1 = np.array([foot_des_x_1, foot_des_y_1 + mpc.y_offset, foot_des_z, foot_des_x_1, foot_des_y_1 - mpc.y_offset, foot_des_z])
+    foot_2 = np.array([foot_des_x_2, foot_des_y_2 + mpc.y_offset, foot_des_z, foot_des_x_2, foot_des_y_2 - mpc.y_offset, foot_des_z])
 
     foot = foot.reshape(-1, 1)
     foot_1 = foot_1.reshape(-1, 1)
@@ -106,6 +109,8 @@ def get_reference_foot_trajectory(x_fb, t, foot, mpc, contact):
         foot_ref = np.concatenate((foot_vec, foot_1_vec, foot_2_vec), axis=1)
     else:
         foot_ref = np.tile(foot, (1, mpc.h))
+
+    # foot_ref = np.tile(foot, (1, mpc.h)) # TODO not ideal change this
     return foot_ref
 
 def eul2rotm(eul):
@@ -148,13 +153,10 @@ def skew(v):
 def get_simplified_dynamics(mpc, biped, x_ref, foot_ref):
     # Iterate through each step
     # Extract values from x_traj
-    roll = x_ref[2]
+    yaw = x_ref[2]
     pitch = x_ref[1]
-    yaw = x_ref[0]
-    from scipy.spatial.transform import Rotation as R
-    euler_angles = [yaw, pitch, roll]  # [yaw, pitch, roll]
-    Rot = R.from_euler('zyx', euler_angles).as_matrix()  # Rotation matrix
-    I = Rot.T @ biped.I @ Rot
+    R = eul2rotm(x_ref[0:3])
+    I = R.T @ biped.I @ R
 
     # Compute Ac matrix
     R_inv = np.linalg.inv(np.array([
@@ -212,8 +214,22 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
         if i > 0:
             Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
             Beq_dyn.append(np.zeros(13))
-    Aeq = Aeq_dyn
-    beq = np.hstack(Beq_dyn)
+
+    # zero Mx
+    Moment_selection = np.array([1, 0, 0])  # Define Moment_selection
+    R_foot_R = R  # Replace with actual rotation matrix
+    R_foot_L = R  # Replace with actual rotation matrix
+
+    A_M_1 = np.block([
+        [np.zeros((1, 3)), np.zeros((1, 3)), Moment_selection @ R_foot_R.T, np.zeros((1, 3))],
+        [np.zeros((1, 3)), np.zeros((1, 3)), np.zeros((1, 3)), Moment_selection @ R_foot_L.T]
+    ])
+    A_M_h = np.kron(np.eye(mpc.h), A_M_1)
+    padding = np.zeros((2 * mpc.h, 13 * mpc.h))
+    A_M = np.hstack([padding, A_M_h])
+    b_M = np.zeros(2 * mpc.h)
+    Aeq = np.vstack([Aeq_dyn, A_M])
+    beq = np.hstack([np.hstack(Beq_dyn), b_M])
 
     # construct inequality constraints:
     # Friction pyramid constraints
@@ -301,6 +317,27 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
     controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
 
+    # # Using osqp to solve
+    # A = np.vstack([Aqp, Aeq])  # Combine inequality and equality constraints
+    # l = np.hstack([-np.inf * np.ones(Aqp.shape[0]), beq])  # Lower bounds
+    # u = np.hstack([bqp.flatten(), beq])  # Upper bounds
+
+    # # Convert to sparse matrices
+    # P = sparse.csc_matrix(H)
+    # q = f
+    # A_sparse = sparse.csc_matrix(A)
+
+    # # Solve QP using OSQP
+    # osqp_solver = osqp.OSQP()
+    # osqp_solver.setup(P=P, q=q, A=A_sparse, l=l, u=u, verbose=False)
+    # result = osqp_solver.solve()
+
+    # # Extract solution
+    # x_opt = result.x
+    # states = x_opt[:13 * mpc.h].reshape((mpc.h, 13))
+    # controls = x_opt[13 * mpc.h:].reshape((mpc.h, 12))
+
+    
     return states, controls
 
 def getLegKinematics(q0, q1, q2, q3, q4, side):
@@ -420,11 +457,12 @@ def getFootPositionWorld(x_fb, q, biped):
         pf_b = pf_b.reshape(-1,1)
         hip_offset = np.array([[biped.hip_offset[0]],  [side* biped.hip_offset[1]], [biped.hip_offset[2]]])
         p_c = x_fb[3:6].reshape(-1,1)
-        pf_w[0+3*leg : 3+3*leg] = p_c + R.T@(pf_b+hip_offset)
+        pf_w[0+3*leg : 3+3*leg] = p_c + R@(pf_b+hip_offset)
     return pf_w
 
 def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
-    y_offset = 0.04
+    global foot_r, foot_l
+    y_offset = mpc.y_offset
     foot_des_x = (
         x_fb[3] + x_fb[9] * 1 / 2 * mpc.h / 2 * mpc.dt
         + mpc.kv * (x_fb[3] - mpc.x_cmd[3])
@@ -435,7 +473,24 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     )
     t = np.remainder(t, mpc.dt * mpc.h / 2)
     foot_des_z = mpc.swingHeight * np.sin(np.pi * t / (mpc.dt * mpc.h / 2))
-
+    percent = t / (mpc.dt * mpc.h / 2 )
+    print('percent', percent)
+    # if t == 0:
+    #     foot_l = np.zeros([3, 1])
+    #     foot_r = np.zeros([3, 1])
+    if percent == 0.0: 
+        if side == 1: # initialize foot position
+            foot_l = pf_w
+        elif side == -1:
+            foot_r = pf_w
+    if side == 1:
+        foot_i = foot_l
+    elif side == -1:
+        foot_i = foot_r
+    print('foot_i',foot_i)
+    foot_des_x = foot_i[0,0] + percent*(foot_des_x - foot_i[0,0])
+    foot_des_y = foot_i[1,0] + percent*(foot_des_y - foot_i[1,0])
+    print('foot_i', foot_i)
     foot_des = np.array([[foot_des_x],[foot_des_y],[foot_des_z]])
     foot_v_des = np.zeros((3,1))
     F_swing = mpc.kp@(foot_des - pf_w) + mpc.kd@(foot_v_des - vf_w)
@@ -458,14 +513,15 @@ def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
         # get Jacobians
         Jm, Jf = getLegKinematics(q0, q1, q2, q3, q4, side)
         # foot velocity in world
-        vf_w = R.T@Jf@qd[5*leg:5*leg+5].reshape(-1,1)
+        vf_w = R@Jf@qd[5*leg:5*leg+5].reshape(-1,1)
         # swing let force
         F_swing = swingLegControl(x_fb, t, pf_w[3*leg:3*leg+3], vf_w, mpc, side)
         # stance mapping
         u_w = -np.vstack([ R.T @ u[3*leg:3*leg+3],  R.T @ u[3*leg+6:3*leg+9] ])
         tau[5*leg:5*leg+5,:] = Jm.T @ u_w * contact[leg] 
         # swing mapping
-        tau[5*leg:5*leg+5,:] += Jf.T @ F_swing * -(contact[leg]-1)
+        tau[5*leg:5*leg+5,:] += Jf.T @ R.T @ F_swing * -(contact[leg]-1)
+        tau[5*leg,:] = 30*(0 - q0) + 1*(0 - qd[5*leg])
 
     return tau
 
