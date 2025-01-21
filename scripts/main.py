@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # initialize the simulation
     sim.reset()
     steps = 0
-    max_steps = 3000
+    max_steps = 6000
     print("max_steps:",max_steps)
     # initialize the controller
     mpc = MPC()
@@ -87,7 +87,7 @@ if __name__ == '__main__':
             foot = pf_w.reshape(-1)
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
-            mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.5*t)
+            mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
             if np.remainder(steps, mpc.dt*1000/1) == 0:
                 start_time = time.time()
                 states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact)
