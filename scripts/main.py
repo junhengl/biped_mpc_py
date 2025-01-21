@@ -90,7 +90,8 @@ if __name__ == '__main__':
             mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
             if np.remainder(steps, mpc.dt*1000/1) == 0:
                 start_time = time.time()
-                states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact)
+
+                states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
                 end_time = time.time()
                 if verbose:
                     print(f"MPC Function execution time: {end_time - start_time} seconds")
@@ -98,6 +99,20 @@ if __name__ == '__main__':
                     print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
+
+            # roughly sth like this
+            # def loss(Q,R):
+            #     states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
+            #     end_time = time.time()
+            #     if verbose:
+            #         print(f"MPC Function execution time: {end_time - start_time} seconds")
+            #         print("States: \n", states)
+            #         print("Controls: \n", controls)
+            #     u0 = controls[0, :].reshape(-1,1)
+            #     tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
+            #     return np.linalg.norm(tau)
+            # jax.grad(loss)(Q,R)
+
             if verbose: print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()
 
