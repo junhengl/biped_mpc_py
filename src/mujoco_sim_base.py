@@ -44,12 +44,24 @@ class MujocoSimBase:
     def step_headless(self):
         mujoco.mj_step(self.model, self.data)
 
+    # def reset(self):
+    #     init_qp = np.array(self.model.keyframe('home').qpos)
+    #     mujoco.mj_resetData(self.model,self.data) 
+    #     self.data.qpos[:] = init_qp
+    #     self.step()
+    #     self.viewer.sync()
+    #     self.viewer_pause = True
+
     def reset(self):
         init_qp = np.array(self.model.keyframe('home').qpos)
-        mujoco.mj_resetData(self.model,self.data) 
+        mujoco.mj_resetData(self.model, self.data) 
         self.data.qpos[:] = init_qp
         self.step()
-        self.viewer.sync()
+        
+        # Only sync the viewer if it exists (not in headless mode)
+        if hasattr(self, 'viewer') and self.viewer is not None:
+            self.viewer.sync()
+        
         self.viewer_pause = True
 
 

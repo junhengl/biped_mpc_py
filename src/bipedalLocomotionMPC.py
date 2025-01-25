@@ -405,12 +405,51 @@ def getLegKinematics(q0, q1, q2, q3, q4, side):
     Jf = Jm[0:3, :]
     return Jm, Jf
 
+# def getFootPositionBody(q0, q1, q2, q3, q4, side):
+#     # Initialize the pf vector
+#     pf = np.zeros(3)
+
+#     # Fill in the vector entries
+#     pf[0] = - (3 * np.cos(q0)) / 200 - \
+#         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)) - 
+#                             np.sin(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)))) / 250 - \
+#         (11 * np.cos(q0) * np.sin(q2)) / 50 - \
+#         ((side) * np.sin(q0)) / 50 - \
+#         (11 * np.cos(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1))) / 50 - \
+#         (11 * np.sin(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2))) / 50 - \
+#         (9 * np.cos(q4) * (np.cos(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)) + 
+#                             np.sin(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)))) / 250 - \
+#         (23 * np.cos(q1) * (side) * np.sin(q0)) / 1000 - \
+#         (11 * np.cos(q2) * np.sin(q0) * np.sin(q1)) / 50
+
+#     pf[1] = (np.cos(q0) * (side)) / 50 - \
+#         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)) - 
+#                             np.sin(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)))) / 250 - \
+#         (3 * np.sin(q0)) / 200 - \
+#         (11 * np.sin(q0) * np.sin(q2)) / 50 - \
+#         (11 * np.cos(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1))) / 50 - \
+#         (11 * np.sin(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2))) / 50 - \
+#         (9 * np.cos(q4) * (np.cos(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)) + 
+#                             np.sin(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)))) / 250 + \
+#         (23 * np.cos(q0) * np.cos(q1) * (side)) / 1000 + \
+#         (11 * np.cos(q0) * np.cos(q2) * np.sin(q1)) / 50
+
+#     pf[2] = (23 * (side) * np.sin(q1)) / 1000 - \
+#         (11 * np.cos(q1) * np.cos(q2)) / 50 - \
+#         (9 * np.cos(q4) * (np.cos(q1) * np.cos(q2) * np.cos(q3) - np.cos(q1) * np.sin(q2) * np.sin(q3))) / 250 + \
+#         (9 * np.sin(q4) * (np.cos(q1) * np.cos(q2) * np.sin(q3) + np.cos(q1) * np.cos(q3) * np.sin(q2))) / 250 - \
+#         (11 * np.cos(q1) * np.cos(q2) * np.cos(q3)) / 50 + \
+#         (11 * np.cos(q1) * np.sin(q2) * np.sin(q3)) / 50 - \
+#         3.0 / 50.0    
+
+#     return pf
+
 def getFootPositionBody(q0, q1, q2, q3, q4, side):
     # Initialize the pf vector
     pf = np.zeros(3)
 
     # Fill in the vector entries
-    pf[0] = - (3 * np.cos(q0)) / 200 - \
+    pf.at[0].set(- (3 * np.cos(q0)) / 200 - \
         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)) - 
                             np.sin(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)))) / 250 - \
         (11 * np.cos(q0) * np.sin(q2)) / 50 - \
@@ -420,9 +459,9 @@ def getFootPositionBody(q0, q1, q2, q3, q4, side):
         (9 * np.cos(q4) * (np.cos(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)) + 
                             np.sin(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)))) / 250 - \
         (23 * np.cos(q1) * (side) * np.sin(q0)) / 1000 - \
-        (11 * np.cos(q2) * np.sin(q0) * np.sin(q1)) / 50
+        (11 * np.cos(q2) * np.sin(q0) * np.sin(q1)) / 50)
 
-    pf[1] = (np.cos(q0) * (side)) / 50 - \
+    pf.at[1].set((np.cos(q0) * (side)) / 50 - \
         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)) - 
                             np.sin(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)))) / 250 - \
         (3 * np.sin(q0)) / 200 - \
@@ -432,15 +471,15 @@ def getFootPositionBody(q0, q1, q2, q3, q4, side):
         (9 * np.cos(q4) * (np.cos(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)) + 
                             np.sin(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)))) / 250 + \
         (23 * np.cos(q0) * np.cos(q1) * (side)) / 1000 + \
-        (11 * np.cos(q0) * np.cos(q2) * np.sin(q1)) / 50
+        (11 * np.cos(q0) * np.cos(q2) * np.sin(q1)) / 50)
 
-    pf[2] = (23 * (side) * np.sin(q1)) / 1000 - \
+    pf.at[2].set((23 * (side) * np.sin(q1)) / 1000 - \
         (11 * np.cos(q1) * np.cos(q2)) / 50 - \
         (9 * np.cos(q4) * (np.cos(q1) * np.cos(q2) * np.cos(q3) - np.cos(q1) * np.sin(q2) * np.sin(q3))) / 250 + \
         (9 * np.sin(q4) * (np.cos(q1) * np.cos(q2) * np.sin(q3) + np.cos(q1) * np.cos(q3) * np.sin(q2))) / 250 - \
         (11 * np.cos(q1) * np.cos(q2) * np.cos(q3)) / 50 + \
         (11 * np.cos(q1) * np.sin(q2) * np.sin(q3)) / 50 - \
-        3.0 / 50.0    
+        3.0 / 50.0)
 
     return pf
 
@@ -461,7 +500,8 @@ def getFootPositionWorld(x_fb, q, biped):
         pf_b = pf_b.reshape(-1,1)
         hip_offset = np.array([[biped.hip_offset[0]],  [side* biped.hip_offset[1]], [biped.hip_offset[2]]])
         p_c = x_fb[3:6].reshape(-1,1)
-        pf_w[0+3*leg : 3+3*leg] = p_c + R@(pf_b+hip_offset)
+        # pf_w[0+3*leg : 3+3*leg] = p_c + R@(pf_b+hip_offset)
+        pf_w.at[0+3*leg : 3+3*leg].set(p_c + R@(pf_b+hip_offset))
     return pf_w
 
 def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):

@@ -6,6 +6,7 @@ from src.transformations import *
 import numpy as np
 import argparse
 import yaml
+import pdb
 
 # TO:CHECK
 # 1. joint zeros and axis direction
@@ -29,7 +30,7 @@ if __name__ == '__main__':
     # initialize the simulation
     sim.reset()
     steps = 0
-    max_steps = 6000
+    max_steps = 6
     print("max_steps:",max_steps)
     # initialize the controller
     mpc = MPC()
@@ -54,6 +55,8 @@ if __name__ == '__main__':
 
     while True:
         # pretty_print_low_cmd(cmd)
+        # pdb.set_trace()
+        sim.viewer_pause = False
         if not sim.viewer_pause:
             
             base_pos = sim.data.qpos[0:3]
@@ -87,7 +90,7 @@ if __name__ == '__main__':
             foot = pf_w.reshape(-1)
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
-            mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
+            mpc.x_cmd.at[5].set(0.55 +0.05*np.sin(2*np.pi*0.25*t))
             if np.remainder(steps, mpc.dt*1000/1) == 0:
                 start_time = time.time()
 
