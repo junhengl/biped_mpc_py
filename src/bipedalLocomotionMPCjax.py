@@ -1,8 +1,8 @@
-import numpy as np
+import jax.numpy as np
 import time
-import cvxopt
-from cvxopt import solvers
-
+# import cvxopt
+# from cvxopt import solvers
+from jaxopt import CvxpyQP
 # import osqp
 from scipy import sparse
 # import pyqpoases
@@ -23,7 +23,8 @@ t = 0
 gait = 0 # standing = 0; walking = 1;
 verbose = False
 ################## functions #####################
-solvers.options['show_progress'] = verbose
+# solvers.options['show_progress'] = verbose
+
 class MPC:
     def __init__(self):
         self.h = 10
@@ -53,8 +54,10 @@ class Biped:
         self.f_min = np.array([[0], [0], [0]])
         self.tau_max =  np.array([[33.5], [33.5], [33.5]])
         self.tau_min = -self.tau_max
+
 mpc = MPC()
 biped = Biped()
+
 def get_contact_sequence(t, mpc):
     # Default contact sequence
     contact = np.array([
@@ -72,9 +75,11 @@ def get_reference_trajectory(x_fb, mpc):
     for i in range(6):
         for k in range(0, mpc.h):
             if mpc.x_cmd[i + 6] != 0:
-                x_ref[i, k] = x_fb[i] + mpc.x_cmd[i + 6] * (k * mpc.dt)
+                # x_ref[i, k] = x_fb[i] + mpc.x_cmd[i + 6] * (k * mpc.dt)
+                x_ref = x_ref.at[i, k].set(x_fb[i] + mpc.x_cmd[i + 6] * (k * mpc.dt))
             else:
-                x_ref[i, k] = mpc.x_cmd[i]
+                # x_ref[i, k] = mpc.x_cmd[i]
+                x_ref = x_ref.at[i, k].set(mpc.x_cmd[i])
     return x_ref
 
 def get_reference_foot_trajectory(x_fb, t, foot, mpc, contact):
@@ -190,11 +195,21 @@ def get_simplified_dynamics(mpc, biped, x_ref, foot_ref):
     B = Bc * mpc. dt
     return A, B
 
-def solve_mpc(Q,R,x_fb, t, foot, mpc, biped, contact):
-    print("x_fb: ", np.round(x_fb, 2))
-    print("t: ", t)
-    print("foot: ", foot)
-    exit()    
+def solve_mpc(
+                Q,
+                R,  
+                x_fb, 
+                t, 
+                foot, 
+                mpc, 
+                biped, 
+                contact
+            ):
+    # mpc.Q = Q
+    # mpc.R = R
+    # print("x_fb: ", np.round(x_fb, 2))
+    # print("t: ", t)
+    # print("foot: ", foot)
     x_ref = get_reference_trajectory(x_fb, mpc)
     foot_ref = get_reference_foot_trajectory(x_fb, t, foot, mpc, contact)
     if verbose:  
@@ -218,10 +233,13 @@ def solve_mpc(Q,R,x_fb, t, foot, mpc, biped, contact):
     Beq_0 = np.dot(A_matrices[0], x_0)
     Beq_dyn.append(Beq_0)
     for i in range(mpc.h):
-        Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
-        Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
+        # Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
+        # Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
+        Aeq_dyn = Aeq_dyn.at[13*i:13*(i+1), 13*i:13*(i+1)].set(np.eye(13))
+        Aeq_dyn = Aeq_dyn.at[13*i:13*(i+1), 13*mpc.h+12*i:13*mpc.h+12*(i+1)].set(-B_matrices[i])
         if i > 0:
-            Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
+            # Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
+            Aeq_dyn = Aeq_dyn.at[13*i:13*(i+1), 13*(i-1):13*(i)].set(-A_matrices[i])
             Beq_dyn.append(np.zeros(13))
 
     # zero Mx
@@ -311,21 +329,40 @@ def solve_mpc(Q,R,x_fb, t, foot, mpc, biped, contact):
     ])
 
     # Convert to cvxopt format
-    H_cvx = cvxopt.matrix(H)
-    f_cvx = cvxopt.matrix(f)
-    Aeq_cvx = cvxopt.matrix(Aeq)
-    beq_cvx = cvxopt.matrix(beq)
-    Aqp_cvx = cvxopt.matrix(Aqp)
-    bqp_cvx = cvxopt.matrix(bqp)
+    # print(type(H))
+    # H_cvx = cvxopt.matrix(H)
+    # f_cvx = cvxopt.matrix(f)
+    # Aeq_cvx = cvxopt.matrix(Aeq)
+    # beq_cvx = cvxopt.matrix(beq)
+    # Aqp_cvx = cvxopt.matrix(Aqp)
+    # bqp_cvx = cvxopt.matrix(bqp)
+
+    # # print the for matrices for debugging
+    # print("H: ", H)
+    # print("f: ", f)
+    # print("Aeq: ", Aeq)
+    # print("beq: ", beq)
+    # print("Aqp: ", Aqp)
+    # print("bqp: ", bqp)
 
     # Solve QP using cvxopt
-    solution = solvers.qp(H_cvx, f_cvx, G=Aqp_cvx, h=bqp_cvx, A=Aeq_cvx, b=beq_cvx)
+    # solution = solvers.qp(H_cvx, f_cvx, G=Aqp_cvx, h=bqp_cvx, A=Aeq_cvx, b=beq_cvx)
+    solver = CvxpyQP(implicit_diff_solve=True,solver='OSQP')
+    solver_opts = {"verbose": True}
+    solution = solver.run(
+                            init_params=None,
+                            params_obj=(H, f), 
+                            params_eq=(Aeq, beq), 
+                            params_ineq=(Aqp, bqp),
+                            # solver_opts=solver_opts
+                            ).params
 
+    # print(solution)
     # Extract states and controls from the solution
-    x_opt = np.array(solution['x']).flatten()
+    x_opt = solution.primal
     states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
     controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
-
+    # print("controls: ", controls)
     # # Using osqp to solve
     # A = np.vstack([Aqp, Aeq])  # Combine inequality and equality constraints
     # l = np.hstack([-np.inf * np.ones(Aqp.shape[0]), beq])  # Lower bounds
@@ -356,66 +393,103 @@ def getLegKinematics(q0, q1, q2, q3, q4, side):
     cos = np.cos
 
     # Fill in the matrix entries
-    Jm[0, 0] = sin(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135) + \
-                cos(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
+    # Jm[0, 0] = sin(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135) + \
+    #             cos(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
+    Jm =  Jm.at[0,0].set(sin(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135) + \
+                cos(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))))
+    # Jm[1, 0] = sin(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))) - \
+    #             cos(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135)
+    Jm = Jm.at[1,0].set(sin(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))) - \
+                cos(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135))
 
-    Jm[1, 0] = sin(q0) * (0.015 * side + cos(q1) * (0.018 * side + 0.0025) - sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))) - \
-                cos(q0) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2) + 0.0135)
+    # Jm[2, 0] = 0.0
+    # Jm[3, 0] = 0.0
+    # Jm[4, 0] = 0.0
+    # Jm[5, 0] = 1.0
+    Jm = Jm.at[2,0].set(0.0)
+    Jm = Jm.at[3,0].set(0.0)
+    Jm = Jm.at[4,0].set(0.0)
+    Jm = Jm.at[5,0].set(1.0)
 
-    Jm[2, 0] = 0.0
-    Jm[3, 0] = 0.0
-    Jm[4, 0] = 0.0
-    Jm[5, 0] = 1.0
+    # Jm[0, 1] = -sin(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
+    Jm =  Jm.at[0,1].set(-sin(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))))
+    # Jm[1, 1] = cos(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
+    Jm =  Jm.at[1,1].set(cos(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))))
+    # Jm[2, 1] = sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - cos(q1) * (0.018 * side + 0.0025)
+    Jm =  Jm.at[2,1].set(sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - cos(q1) * (0.018 * side + 0.0025))
+    # Jm[3, 1] = cos(q0)
+    Jm =  Jm.at[3,1].set(cos(q0))
+    # Jm[4, 1] = sin(q0)
+    Jm =  Jm.at[4,1].set(sin(q0))
+    # Jm[5, 1] = 0.0
+    Jm =  Jm.at[5,1].set(0.0)
 
-    Jm[0, 1] = -sin(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
-    Jm[1, 1] = cos(q0) * (sin(q1) * (0.018 * side + 0.0025) + cos(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
-    Jm[2, 1] = sin(q1) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - cos(q1) * (0.018 * side + 0.0025)
-    Jm[3, 1] = cos(q0)
-    Jm[4, 1] = sin(q0)
-    Jm[5, 1] = 0.0
+    # Jm[0, 2] = sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2)) - \
+    #             cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))
+    Jm = Jm.at[0,2].set(sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2)) - \
+                cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)))
 
-    Jm[0, 2] = sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2)) - \
-                cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2))
+    # Jm[1, 2] = -sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - \
+    #             cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2))
+    Jm = Jm.at[1,2].set(-sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - \
+                cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2)))
 
-    Jm[1, 2] = -sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3) + 0.22 * cos(q2)) - \
-                cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2))
+    # Jm[2, 2] = cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2))
+    Jm = Jm.at[2,2].set(cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2)))
+    # Jm[3, 2] = -cos(q1) * sin(q0)
+    Jm = Jm.at[3,2].set(-cos(q1) * sin(q0))
+    # Jm[4, 2] = cos(q0) * cos(q1)
+    Jm = Jm.at[4,2].set(cos(q0) * cos(q1))
+    # Jm[5, 2] = sin(q1)
+    Jm = Jm.at[5,2].set(sin(q1))
 
-    Jm[2, 2] = cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3) + 0.22 * sin(q2))
-    Jm[3, 2] = -cos(q1) * sin(q0)
-    Jm[4, 2] = cos(q0) * cos(q1)
-    Jm[5, 2] = sin(q1)
+    # Jm[0, 3] = sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3)) - \
+    #             cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3))
+    Jm = Jm.at[0,3].set(sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3)) - \
+                cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3)))
 
-    Jm[0, 3] = sin(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3)) - \
-                cos(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3))
+    # Jm[1, 3] = -sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3)) - \
+    #             cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3))
+    Jm = Jm.at[1,3].set(-sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3)) - \
+                cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3)))
 
-    Jm[1, 3] = -sin(q0) * (0.04 * cos(q2 + q3 + q4) + 0.22 * cos(q2 + q3)) - \
-                cos(q0) * sin(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3))
+    # Jm[2, 3] = cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3))
+    Jm = Jm.at[2,3].set(cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3)))
+    # Jm[3, 3] = -cos(q1) * sin(q0)
+    Jm = Jm.at[3,3].set(-cos(q1) * sin(q0))
+    # Jm[4, 3] = cos(q0) * cos(q1)
+    Jm = Jm.at[4,3].set(cos(q0) * cos(q1))
+    # Jm[5, 3] = sin(q1)
+    Jm = Jm.at[5,3].set(sin(q1))
 
-    Jm[2, 3] = cos(q1) * (0.04 * sin(q2 + q3 + q4) + 0.22 * sin(q2 + q3))
-    Jm[3, 3] = -cos(q1) * sin(q0)
-    Jm[4, 3] = cos(q0) * cos(q1)
-    Jm[5, 3] = sin(q1)
+    # Jm[0, 4] = 0.04 * sin(q2 + q3 + q4) * sin(q0) * sin(q1) - \
+    #             0.04 * cos(q2 + q3 + q4) * cos(q0)
+    Jm = Jm.at[0,4].set(0.04 * sin(q2 + q3 + q4) * sin(q0) * sin(q1) - \
+                0.04 * cos(q2 + q3 + q4) * cos(q0))
+    
+    # Jm[1, 4] = -0.04 * cos(q2 + q3 + q4) * sin(q0) - \
+    #             0.04 * sin(q2 + q3 + q4) * cos(q0) * sin(q1)
+    Jm = Jm.at[1,4].set(-0.04 * cos(q2 + q3 + q4) * sin(q0) - \
+                0.04 * sin(q2 + q3 + q4) * cos(q0) * sin(q1))
 
-    Jm[0, 4] = 0.04 * sin(q2 + q3 + q4) * sin(q0) * sin(q1) - \
-                0.04 * cos(q2 + q3 + q4) * cos(q0)
-
-    Jm[1, 4] = -0.04 * cos(q2 + q3 + q4) * sin(q0) - \
-                0.04 * sin(q2 + q3 + q4) * cos(q0) * sin(q1)
-
-    Jm[2, 4] = 0.04 * sin(q2 + q3 + q4) * cos(q1)
-    Jm[3, 4] = -cos(q1) * sin(q0)
-    Jm[4, 4] = cos(q0) * cos(q1)
-    Jm[5, 4] = sin(q1)
+    # Jm[2, 4] = 0.04 * sin(q2 + q3 + q4) * cos(q1)
+    Jm = Jm.at[2,4].set(0.04 * sin(q2 + q3 + q4) * cos(q1))
+    # Jm[3, 4] = -cos(q1) * sin(q0)
+    Jm = Jm.at[3,4].set(-cos(q1) * sin(q0))
+    # Jm[4, 4] = cos(q0) * cos(q1)
+    Jm = Jm.at[4,4].set(cos(q0) * cos(q1))
+    # Jm[5, 4] = sin(q1)
+    Jm = Jm.at[5,4].set(sin(q1))
 
     Jf = Jm[0:3, :]
     return Jm, Jf
 
 def getFootPositionBody(q0, q1, q2, q3, q4, side):
     # Initialize the pf vector
-    pf = np.zeros(3)
-
+    # pf = np.zeros(3)
     # Fill in the vector entries
-    pf[0] = - (3 * np.cos(q0)) / 200 - \
+    pf = np.array([
+    - (3 * np.cos(q0)) / 200 - \
         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)) - 
                             np.sin(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)))) / 250 - \
         (11 * np.cos(q0) * np.sin(q2)) / 50 - \
@@ -425,9 +499,9 @@ def getFootPositionBody(q0, q1, q2, q3, q4, side):
         (9 * np.cos(q4) * (np.cos(q3) * (np.cos(q0) * np.sin(q2) + np.cos(q2) * np.sin(q0) * np.sin(q1)) + 
                             np.sin(q3) * (np.cos(q0) * np.cos(q2) - np.sin(q0) * np.sin(q1) * np.sin(q2)))) / 250 - \
         (23 * np.cos(q1) * (side) * np.sin(q0)) / 1000 - \
-        (11 * np.cos(q2) * np.sin(q0) * np.sin(q1)) / 50
+        (11 * np.cos(q2) * np.sin(q0) * np.sin(q1)) / 50,
 
-    pf[1] = (np.cos(q0) * (side)) / 50 - \
+    (np.cos(q0) * (side)) / 50 - \
         (9 * np.sin(q4) * (np.cos(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)) - 
                             np.sin(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)))) / 250 - \
         (3 * np.sin(q0)) / 200 - \
@@ -437,21 +511,22 @@ def getFootPositionBody(q0, q1, q2, q3, q4, side):
         (9 * np.cos(q4) * (np.cos(q3) * (np.sin(q0) * np.sin(q2) - np.cos(q0) * np.cos(q2) * np.sin(q1)) + 
                             np.sin(q3) * (np.cos(q2) * np.sin(q0) + np.cos(q0) * np.sin(q1) * np.sin(q2)))) / 250 + \
         (23 * np.cos(q0) * np.cos(q1) * (side)) / 1000 + \
-        (11 * np.cos(q0) * np.cos(q2) * np.sin(q1)) / 50
+        (11 * np.cos(q0) * np.cos(q2) * np.sin(q1)) / 50,
 
-    pf[2] = (23 * (side) * np.sin(q1)) / 1000 - \
+    (23 * (side) * np.sin(q1)) / 1000 - \
         (11 * np.cos(q1) * np.cos(q2)) / 50 - \
         (9 * np.cos(q4) * (np.cos(q1) * np.cos(q2) * np.cos(q3) - np.cos(q1) * np.sin(q2) * np.sin(q3))) / 250 + \
         (9 * np.sin(q4) * (np.cos(q1) * np.cos(q2) * np.sin(q3) + np.cos(q1) * np.cos(q3) * np.sin(q2))) / 250 - \
         (11 * np.cos(q1) * np.cos(q2) * np.cos(q3)) / 50 + \
         (11 * np.cos(q1) * np.sin(q2) * np.sin(q3)) / 50 - \
         3.0 / 50.0    
-
+        ])
     return pf
 
 def getFootPositionWorld(x_fb, q, biped):
     R = eul2rotm(x_fb[0:3])
     pf_w = np.zeros((6,1))
+    # print('pf_w', pf_w)
     for leg in range(2):
         q0 = q[5*leg+0]
         q1 = q[5*leg+1]
@@ -466,7 +541,10 @@ def getFootPositionWorld(x_fb, q, biped):
         pf_b = pf_b.reshape(-1,1)
         hip_offset = np.array([[biped.hip_offset[0]],  [side* biped.hip_offset[1]], [biped.hip_offset[2]]])
         p_c = x_fb[3:6].reshape(-1,1)
-        pf_w[0+3*leg : 3+3*leg] = p_c + R@(pf_b+hip_offset)
+        # pf_w[0+3*leg : 3+3*leg] = p_c + R@(pf_b+hip_offset)
+        pf_w = pf_w.at[0+3*leg:3+3*leg].set(p_c + R@pf_b + hip_offset)
+        # pf_w.at[0+3*leg].set(p_c[0] + R[0,0]*pf_b[0] + R[0,1]*pf_b[1] + R[0,2]*pf_b[2] + hip_offset[0])
+
     return pf_w
 
 def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
@@ -508,6 +586,7 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
 def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
     tau = np.zeros((10,1))
     contact = contact[0, 0:2]
+    # print('contact', contact)
     R = eul2rotm(x_fb[0:3])
     for leg in range(2):
         q0 = q[5*leg+0]
@@ -527,11 +606,21 @@ def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
         F_swing = swingLegControl(x_fb, t, pf_w[3*leg:3*leg+3], vf_w, mpc, side)
         # stance mapping
         u_w = -np.vstack([ R.T @ u[3*leg:3*leg+3],  R.T @ u[3*leg+6:3*leg+9] ])
-        tau[5*leg:5*leg+5,:] = Jm.T @ u_w * contact[leg] 
+        # tau[5*leg:5*leg+5,:] = Jm.T @ u_w * contact[leg] 
+        rhs = Jm.T @ u_w * contact[leg]
+        # print("rhs:", rhs)
+        # print("tau bf:", tau)
+        tau = tau.at[5*leg:5*leg+5,:].set(Jm.T @ u_w * contact[leg])
+        # print("tau af1:", tau)
         # swing mapping
-        tau[5*leg:5*leg+5,:] += Jf.T @ R.T @ F_swing * -(contact[leg]-1)
-        tau[5*leg,:] = 30*(0 - q0) + 1*(0 - qd[5*leg])
-
+        # tau[5*leg:5*leg+5,:] += Jf.T @ R.T @ F_swing * -(contact[leg]-1)
+        # print(Jf.T @ R.T @ F_swing * -(contact[leg]-1))
+        tau = tau.at[5*leg:5*leg+5,:].set(tau[5*leg:5*leg+5,:] + Jf.T @ R.T @ F_swing * -(contact[leg]-1))
+        # print("tau af2:", tau)
+        # tau[5*leg,:] = 30*(0 - q0) + 1*(0 - qd[5*leg])
+        # print(30*(0 - q0) + 1*(0 - qd[5*leg]))
+        tau = tau.at[5*leg,:].set(30*(0 - q0) + 1*(0 - qd[5*leg]))
+        # print('tau', tau)
     return tau
 
 

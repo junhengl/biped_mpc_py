@@ -1,7 +1,8 @@
 import sys
 sys.path.append('./')
 from src import mujoco_sim_base
-from src.bipedalLocomotionMPC import *
+from src.bipedalLocomotionMPCjax import *
+# from src.bipedalLocomotionMPC import *
 from src.transformations import *
 import numpy as np
 import argparse
@@ -29,11 +30,9 @@ if __name__ == '__main__':
     # initialize the simulation
     sim.reset()
     steps = 0
-    max_steps = 6000
+    max_steps = 1000
     print("max_steps:",max_steps)
     # initialize the controller
-    mpc = MPC()
-    biped = Biped()
     u0 = np.zeros([12,1])
 
     t = 0
@@ -83,23 +82,36 @@ if __name__ == '__main__':
             t = steps/1000
             if verbose: print('time: ', t)
 
+            
             pf_w = getFootPositionWorld(x_fb, q, biped)
             foot = pf_w.reshape(-1)
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
-            mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
+            # mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
+            mpc.x_cmd = mpc.x_cmd.at[5].set(0.55 +0.05*np.sin(2*np.pi*0.25*t))
             if np.remainder(steps, mpc.dt*1000/1) == 0:
                 start_time = time.time()
-
-                states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
+                Q = np.array([100, 100, 100,  500, 100, 500,  1, 1, 1,   1, 1, 1, 1])
+                R = np.array([1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1]) * 1e-6
+                st = time.time()
+                states, controls,reference = solve_mpc(
+                                                        Q,
+                                                        R,
+                                                        x_fb, 
+                                                        t, 
+                                                        foot,
+                                                        mpc, 
+                                                        biped, 
+                                                        contact
+                                                        )
                 end_time = time.time()
+                print(f"MPC Function execution time: {end_time - start_time} seconds")
                 if verbose:
                     print(f"MPC Function execution time: {end_time - start_time} seconds")
                     print("States: \n", states)
                     print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
-
             # roughly sth like this
             # def loss(Q,R):
             #     states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
@@ -115,6 +127,7 @@ if __name__ == '__main__':
 
             if verbose: print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()
+            print('steps:', steps, sim.data.ctrl[:])
 
 
 
