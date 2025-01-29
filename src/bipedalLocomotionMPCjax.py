@@ -1,3 +1,9 @@
+
+# force jax to run in CPU mode
+import os
+# os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=4"
+# Description: This file contains the implementation of the bipedal locomotion MPC using JAX.
+
 import jax.numpy as np
 import time
 # import cvxopt
@@ -210,12 +216,20 @@ def solve_mpc(
     # print("x_fb: ", np.round(x_fb, 2))
     # print("t: ", t)
     # print("foot: ", foot)
+    st = time.time()
     x_ref = get_reference_trajectory(x_fb, mpc)
+    print("Reference trajectory time: ", time.time()-st)
+
+    st = time.time()
     foot_ref = get_reference_foot_trajectory(x_fb, t, foot, mpc, contact)
+    print("Reference foot trajectory time: ", time.time()-st)
+
     if verbose:  
         print("state reference: \n", x_ref)
         print("contact sequence: \n", contact)
         print("foot reference: \n", foot_ref)
+    
+    st = time.time()
     R = eul2rotm(x_fb[0:3])
     # load state matrices for each horizon:
     A_matrices = []
@@ -327,6 +341,7 @@ def solve_mpc(
         -np.kron(np.eye(mpc.h), np.diag(mpc.Q)) @ x_ref_flat,
         np.zeros(12 * mpc.h)
     ])
+    print("MPC setup time: ", time.time()-st)
 
     # Convert to cvxopt format
     # print(type(H))
@@ -347,6 +362,7 @@ def solve_mpc(
 
     # Solve QP using cvxopt
     # solution = solvers.qp(H_cvx, f_cvx, G=Aqp_cvx, h=bqp_cvx, A=Aeq_cvx, b=beq_cvx)
+    st = time.time()
     solver = CvxpyQP(implicit_diff_solve=True,solver='OSQP')
     solver_opts = {"verbose": True}
     solution = solver.run(
@@ -356,7 +372,7 @@ def solve_mpc(
                             params_ineq=(Aqp, bqp),
                             # solver_opts=solver_opts
                             ).params
-
+    print("MPC solver execution time: ", time.time()-st)
     # print(solution)
     # Extract states and controls from the solution
     x_opt = solution.primal

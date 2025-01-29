@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # initialize the simulation
     sim.reset()
     steps = 0
-    max_steps = 1000
+    max_steps = 5000
     print("max_steps:",max_steps)
     # initialize the controller
     u0 = np.zeros([12,1])
@@ -105,7 +105,8 @@ if __name__ == '__main__':
                                                         contact
                                                         )
                 end_time = time.time()
-                print(f"MPC Function execution time: {end_time - start_time} seconds")
+                print(f"Complete MPC Function execution time: {end_time - start_time} seconds")
+                print('##############################################')
                 if verbose:
                     print(f"MPC Function execution time: {end_time - start_time} seconds")
                     print("States: \n", states)
@@ -127,8 +128,7 @@ if __name__ == '__main__':
 
             if verbose: print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()
-            print('steps:', steps, sim.data.ctrl[:])
-
+            # print('steps:', steps, sim.data.ctrl[:])
 
 
             steps += 1
