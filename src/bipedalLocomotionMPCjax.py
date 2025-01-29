@@ -539,7 +539,7 @@ def getFootPositionBody(q0, q1, q2, q3, q4, side):
         ])
     return pf
 
-def getFootPositionWorld(x_fb, q, biped):
+def getFootPositionWorld(x_fb, q):
     R = eul2rotm(x_fb[0:3])
     pf_w = np.zeros((6,1))
     # print('pf_w', pf_w)
@@ -563,7 +563,7 @@ def getFootPositionWorld(x_fb, q, biped):
 
     return pf_w
 
-def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
+def swingLegControl(x_fb, t, pf_w, vf_w, side):
     global foot_r, foot_l
     y_offset = mpc.y_offset
     foot_des_x = (
@@ -599,7 +599,7 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     F_swing = mpc.kp@(foot_des - pf_w) + mpc.kd@(foot_v_des - vf_w)
     return F_swing
 
-def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
+def lowLevelControl(x_fb, t, pf_w, q, qd, contact, u):
     tau = np.zeros((10,1))
     contact = contact[0, 0:2]
     # print('contact', contact)
@@ -619,7 +619,7 @@ def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
         # foot velocity in world
         vf_w = R@Jf@qd[5*leg:5*leg+5].reshape(-1,1)
         # swing let force
-        F_swing = swingLegControl(x_fb, t, pf_w[3*leg:3*leg+3], vf_w, mpc, side)
+        F_swing = swingLegControl(x_fb, t, pf_w[3*leg:3*leg+3], vf_w, side)
         # stance mapping
         u_w = -np.vstack([ R.T @ u[3*leg:3*leg+3],  R.T @ u[3*leg+6:3*leg+9] ])
         # tau[5*leg:5*leg+5,:] = Jm.T @ u_w * contact[leg] 

@@ -1,4 +1,4 @@
 sim:
   model_path: ./assets/hector_v1p5/mvsc.xml
   headless: false
-  viewer_fps: 100
+  viewer_fps: 5 #100
