@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # initialize the simulation
     sim.reset()
     steps = 0
-    max_steps = 6000
+    max_steps = np.inf
     print("max_steps:",max_steps)
     # initialize the controller
     mpc = MPC()
@@ -37,8 +37,7 @@ if __name__ == '__main__':
     u0 = np.zeros([12,1])
 
     t = 0
-    gait = 0 # standing = 0; walking = 1;
-    verbose = False
+    gait = 1 # standing = 0; walking = 1;
     # global foot_des_i 
     global foot_l 
     global foot_r 
@@ -47,10 +46,6 @@ if __name__ == '__main__':
     # foot_l = np.zeros([3, 1])
     # foot_r = np.zeros([3, 1])
     # print('foot l', foot_l)
-    base_pos_tru = []
-    base_pos_ref = []
-    base_tvel_tru = []
-    base_tvel_ref = []
 
     while True:
         # pretty_print_low_cmd(cmd)
@@ -81,88 +76,29 @@ if __name__ == '__main__':
             elif gait == 0:
                 contact = np.ones((mpc.h, 2))
             t = steps/1000
-            if verbose: print('time: ', t)
+            print('time: ', t)
 
             pf_w = getFootPositionWorld(x_fb, q, biped)
             foot = pf_w.reshape(-1)
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
-            mpc.x_cmd[5] = 0.55 +0.05*np.sin(2*np.pi*0.25*t)
-            if np.remainder(steps, mpc.dt*1000/1) == 0:
+            # mpc.x_cmd[5] = 0.5 + 0.05*np.sin(t * np.pi)
+            if np.remainder(steps, mpc.dt*1000/10) == 0:
                 start_time = time.time()
-
-                states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
+                states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
                 end_time = time.time()
-                if verbose:
-                    print(f"MPC Function execution time: {end_time - start_time} seconds")
-                    print("States: \n", states)
-                    print("Controls: \n", controls)
+                print(f"MPC Function execution time: {end_time - start_time} seconds")
+                print("States: \n", states)
+                print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
-
-            # roughly sth like this
-            # def loss(Q,R):
-            #     states, controls,reference = solve_mpc(x_fb, t, foot, mpc, biped, contact, Q,R )
-            #     end_time = time.time()
-            #     if verbose:
-            #         print(f"MPC Function execution time: {end_time - start_time} seconds")
-            #         print("States: \n", states)
-            #         print("Controls: \n", controls)
-            #     u0 = controls[0, :].reshape(-1,1)
-            #     tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
-            #     return np.linalg.norm(tau)
-            # jax.grad(loss)(Q,R)
-
-            if verbose: print("Torques: \n", tau)
+            print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()
 
-
-
             steps += 1
-            base_pos_tru.append(sim.data.qpos[0:3].copy())
-            base_tvel_tru.append(sim.data.qvel[0:3].copy())
-            base_pos_ref.append(reference[3:6,-1].copy())
-            base_tvel_ref.append(reference[9:12,-1].copy())
-            # print('steps:', steps)
             if steps > max_steps:
                 break
     
         sim.step()
-
-    base_pos_tru = np.array(base_pos_tru)
-    base_pos_ref = np.array(base_pos_ref)
-    base_tvel_tru = np.array(base_tvel_tru)
-    base_tvel_ref = np.array(base_tvel_ref)
-    import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(2, 3, figsize=(15, 10))
-
-    # firs row position
-    axs[0,0].plot(base_pos_tru[:,0], label='true')
-    axs[0,0].plot(base_pos_ref[:,0], label='ref')
-
-    axs[0,1].plot(base_pos_tru[:,1], label='true')
-    axs[0,1].plot(base_pos_ref[:,1], label='ref')
-
-    axs[0,2].plot(base_pos_tru[:,2], label='true')
-    axs[0,2].plot(base_pos_ref[:,2], label='ref')
-
-    # second row velocity
-    axs[1,0].plot(base_tvel_tru[:,0], label='true')
-    axs[1,0].plot(base_tvel_ref[:,0], label='ref')
-
-    axs[1,1].plot(base_tvel_tru[:,1], label='true')
-    axs[1,1].plot(base_tvel_ref[:,1], label='ref')
-
-    axs[1,2].plot(base_tvel_tru[:,2], label='true')
-    axs[1,2].plot(base_tvel_ref[:,2], label='ref')
-
-
-    for ax in axs.flat:
-        ax.grid()   
-        ax.legend()
-    
-    fig.tight_layout()
-    plt.show()
-
 
 

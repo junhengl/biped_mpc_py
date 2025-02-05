@@ -1,9 +1,7 @@
-import jax.numpy as np
+import numpy as np
 import time
 import cvxopt
-from cvxopt import solvers
-
-# import osqp
+import osqp
 from scipy import sparse
 # import pyqpoases
 np.set_printoptions(suppress=True, precision=2)
@@ -21,26 +19,25 @@ q = np.array([0,0,-np.pi/4,np.pi/2,-np.pi/4, 0,0,-np.pi/4,np.pi/2,-np.pi/4])
 qd = np.zeros((10))
 t = 0
 gait = 0 # standing = 0; walking = 1;
-verbose = False
+
 ################## functions #####################
-solvers.options['show_progress'] = verbose
+
 class MPC:
     def __init__(self):
         self.h = 10
         self.dt = 0.04
         self.x_cmd = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0, 0, 0])  # Command
-        # self.Q = np.array([500, 100, 100,  500, 500, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights - walking
-        self.Q = np.array([100, 100, 100,  500, 100, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights - standing and height change
-        self.R = np.array([1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1]) * 1e-6  # Control input weights
-        self.kv = 0.03
+        self.Q = np.array([600, 300, 10,  150, 350, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
+        self.R = np.array([1, 1, 1, 1, 1, 1,   10, 10, 10, 10, 10, 10]) * 1e-5  # Control input weights
+        self.kv = 0.01
         self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*1000
         self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*5
         self.swingHeight = 0.1
-        self.y_offset = 0.07
+        self.y_offset = 0.04
 
 class Biped:
     def __init__(self):
-        self.m = 10  # Mass
+        self.m = 12  # Mass
         self.I = np.array([[0.532, 0, 0],
                           [0, 0.5420, 0],
                           [0, 0, 0.0711]])  # Inertia
@@ -49,8 +46,8 @@ class Biped:
         self.g = 9.81  # Gravity
         self.hip_offset = np.array([-0.005, 0.047, -0.126])
         self.mu = 0.4
-        self.f_max = np.array([[250], [250], [250]])
-        self.f_min = np.array([[0], [0], [0]])
+        self.f_max = np.array([[500], [500], [500]])
+        self.f_min = np.array([[-500], [-500], [0]])
         self.tau_max =  np.array([[33.5], [33.5], [33.5]])
         self.tau_min = -self.tau_max
 
@@ -192,10 +189,9 @@ def get_simplified_dynamics(mpc, biped, x_ref, foot_ref):
 def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     x_ref = get_reference_trajectory(x_fb, mpc)
     foot_ref = get_reference_foot_trajectory(x_fb, t, foot, mpc, contact)
-    if verbose:  
-        print("state reference: \n", x_ref)
-        print("contact sequence: \n", contact)
-        print("foot reference: \n", foot_ref)
+    print("state reference: \n", x_ref)
+    print("contact sequence: \n", contact)
+    print("foot reference: \n", foot_ref)
     R = eul2rotm(x_fb[0:3])
     # load state matrices for each horizon:
     A_matrices = []
@@ -204,20 +200,38 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
         A, B = get_simplified_dynamics(mpc, biped, x_ref[:, k], foot_ref[:, k])
         A_matrices.append(A)
         B_matrices.append(B)
+    y = np.reshape(x_ref.T, (13 * mpc.h, 1))
+    # Aqp
+    Aqp = [np.zeros((13, 13)) for _ in range(mpc.h)]
+    Aqp[0] =  A_matrices[0]
+    for i in range(1, mpc.h):
+        Aqp[i] = np.dot(Aqp[i - 1],  A_matrices[i])
+    Aqp = np.vstack(Aqp)
 
-    # construct dynamics constraints:
-    Aeq_dyn = np.zeros((13*mpc.h, 25*mpc.h))
-    Beq_dyn = []
-    one = np.array([1])
-    x_0 = np.concatenate((x_fb, one), axis=0)
-    Beq_0 = np.dot(A_matrices[0], x_0)
-    Beq_dyn.append(Beq_0)
+    # Bqp
+    Bqp = [[np.zeros((13, 12)) for _ in range(mpc.h)] for _ in range(mpc.h)]
     for i in range(mpc.h):
-        Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
-        Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
-        if i > 0:
-            Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
-            Beq_dyn.append(np.zeros(13))
+        Bqp[i][i] = B_matrices[i]
+        for j in range(i):
+            Bqp[i][j] = np.linalg.matrix_power( A_matrices[i], i - j) @ B_matrices[j]
+    for i in range(mpc.h - 1):
+        for j in range(i + 1, mpc.h):
+            Bqp[i][j] = np.zeros((13, 12))
+    Bqp = np.block(Bqp)
+
+    # # construct dynamics constraints:
+    # Aeq_dyn = np.zeros((13*mpc.h, 25*mpc.h))
+    # Beq_dyn = []
+    one = np.array([1])
+    x_0 = np.concatenate((x_fb, one), axis=0).reshape(-1,1)
+    # Beq_0 = np.dot(A_matrices[0], x_0)
+    # Beq_dyn.append(Beq_0)
+    # for i in range(mpc.h):
+    #     Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
+    #     Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
+    #     if i > 0:
+    #         Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
+    #         Beq_dyn.append(np.zeros(13))
 
     # zero Mx
     Moment_selection = np.array([1, 0, 0])  # Define Moment_selection
@@ -232,8 +246,10 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     padding = np.zeros((2 * mpc.h, 13 * mpc.h))
     A_M = np.hstack([padding, A_M_h])
     b_M = np.zeros(2 * mpc.h)
-    Aeq = np.vstack([Aeq_dyn, A_M])
-    beq = np.hstack([np.hstack(Beq_dyn), b_M])
+    # Aeq = np.vstack([Aeq_dyn, A_M])
+    # beq = np.hstack([np.hstack(Beq_dyn), b_M])
+    Aeq = A_M_h
+    beq = b_M.reshape(-1,1)
 
     # construct inequality constraints:
     # Friction pyramid constraints
@@ -248,13 +264,13 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
         [*[0] * 3, 0, -1, -biped.mu, *[0] * 6],
     ])
     A_mu = np.kron(np.eye(mpc.h), A_mu1)
-    A_mu = np.hstack([np.zeros((A_mu.shape[0], 13*mpc.h)),A_mu])
+    # A_mu = np.hstack([np.zeros((A_mu.shape[0], 13*mpc.h)),A_mu])
     b_mu = np.zeros((8*mpc.h, 1))
 
     # force saturations
     A_f1 = np.vstack([np.eye(12), -np.eye(12)])
     A_f = np.kron(np.eye(mpc.h), A_f1)
-    A_f = np.hstack([np.zeros((A_f.shape[0], 13*mpc.h)),A_f])
+    # A_f = np.hstack([np.zeros((A_f.shape[0], 13*mpc.h)),A_f])
     b_f = []
     for k in range(mpc.h):
         col_k = np.concatenate([
@@ -290,41 +306,56 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     # Define b_LF
     b_LF = np.zeros((4 * mpc.h, 1))
 
-    Aqp = np.vstack([A_mu, A_f, A_LF])
-    bqp = np.vstack([b_mu, b_f, b_LF])
+    Aineq = np.vstack([A_mu, A_f, A_LFh])
+    bineq = np.vstack([b_mu, b_f, b_LF])
 
 
     # Objective function 
-    H = 2*np.block([
-        [np.kron(np.eye(mpc.h), np.diag(mpc.Q)), np.zeros((13 * mpc.h, 12 * mpc.h))],
-        [np.zeros((12 * mpc.h, 13 * mpc.h)), np.kron(np.eye(mpc.h), np.diag(mpc.R))]
-    ])
-    x_ref_flat = x_ref.T.flatten()
-    f = 2*np.hstack([
-        -np.kron(np.eye(mpc.h), np.diag(mpc.Q)) @ x_ref_flat,
-        np.zeros(12 * mpc.h)
-    ])
+    # H = 2*np.block([
+    #     [np.kron(np.eye(mpc.h), np.diag(mpc.Q)), np.zeros((13 * mpc.h, 12 * mpc.h))],
+    #     [np.zeros((12 * mpc.h, 13 * mpc.h)), np.kron(np.eye(mpc.h), np.diag(mpc.R))]
+    # ])
+    # x_ref_flat = x_ref.T.flatten()
+    # f = 2*np.hstack([
+    #     -np.kron(np.eye(mpc.h), np.diag(mpc.Q)) @ x_ref_flat,
+    #     np.zeros(12 * mpc.h)
+    # ])
+    # MPC->QP math
+    L = np.kron(np.eye(mpc.h), np.diag(mpc.Q))
+    K = np.kron(np.eye(mpc.h), np.diag(mpc.R))
+    H = 2 * (Bqp.T @ L @ Bqp + K)
+    f = 2 * Bqp.T @ L @ (Aqp @ x_0 - y)
 
     # Convert to cvxopt format
     H_cvx = cvxopt.matrix(H)
     f_cvx = cvxopt.matrix(f)
     Aeq_cvx = cvxopt.matrix(Aeq)
     beq_cvx = cvxopt.matrix(beq)
-    Aqp_cvx = cvxopt.matrix(Aqp)
-    bqp_cvx = cvxopt.matrix(bqp)
+    Aqp_cvx = cvxopt.matrix(Aineq)
+    bqp_cvx = cvxopt.matrix(bineq)
+
+    # print(H.shape)
+    # print(f.shape)
+    # print(Aeq.shape)
+    # print(beq.shape)
+    # print(Aineq.shape)
+    # print(bineq.shape)
 
     # Solve QP using cvxopt
-    solution = solvers.qp(H_cvx, f_cvx, G=Aqp_cvx, h=bqp_cvx, A=Aeq_cvx, b=beq_cvx)
+    solution = cvxopt.solvers.qp(H_cvx, f_cvx, G=Aqp_cvx, h=bqp_cvx, A=Aeq_cvx, b=beq_cvx)
 
     # Extract states and controls from the solution
     x_opt = np.array(solution['x']).flatten()
-    states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
-    controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
+    # states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
+    # controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
+    controls = x_opt.reshape((mpc.h,12))
 
     # # Using osqp to solve
-    # A = np.vstack([Aqp, Aeq])  # Combine inequality and equality constraints
-    # l = np.hstack([-np.inf * np.ones(Aqp.shape[0]), beq])  # Lower bounds
-    # u = np.hstack([bqp.flatten(), beq])  # Upper bounds
+    # A = np.vstack([Aineq, Aeq])  # Combine inequality and equality constraints
+    # print(np.ones(Aineq.shape[0]).reshape(-1,1).shape)
+    # print(beq.shape)
+    # l = np.vstack([-np.inf * np.ones(Aineq.shape[0]).reshape(-1,1), beq])  # Lower bounds
+    # u = np.vstack([bineq, beq])  # Upper bounds
 
     # # Convert to sparse matrices
     # P = sparse.csc_matrix(H)
@@ -338,11 +369,10 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
 
     # # Extract solution
     # x_opt = result.x
-    # states = x_opt[:13 * mpc.h].reshape((mpc.h, 13))
-    # controls = x_opt[13 * mpc.h:].reshape((mpc.h, 12))
+    # controls = x_opt.reshape((mpc.h, 12))
 
-    
-    return states, controls, x_ref
+    states = []
+    return states, controls
 
 def getLegKinematics(q0, q1, q2, q3, q4, side):
     # Initialize the Jm matrix
@@ -478,7 +508,7 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     t = np.remainder(t, mpc.dt * mpc.h / 2)
     foot_des_z = mpc.swingHeight * np.sin(np.pi * t / (mpc.dt * mpc.h / 2))
     percent = t / (mpc.dt * mpc.h / 2 )
-    if verbose: print('percent', percent)
+    print('percent', percent)
     # if t == 0:
     #     foot_l = np.zeros([3, 1])
     #     foot_r = np.zeros([3, 1])
@@ -491,10 +521,10 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
         foot_i = foot_l
     elif side == -1:
         foot_i = foot_r
-    if verbose: print('foot_i',foot_i)
+    print('foot_i',foot_i)
     foot_des_x = foot_i[0,0] + percent*(foot_des_x - foot_i[0,0])
     foot_des_y = foot_i[1,0] + percent*(foot_des_y - foot_i[1,0])
-    if verbose: print('foot_i', foot_i)
+    print('foot_i', foot_i)
     foot_des = np.array([[foot_des_x],[foot_des_y],[foot_des_z]])
     foot_v_des = np.zeros((3,1))
     F_swing = mpc.kp@(foot_des - pf_w) + mpc.kd@(foot_v_des - vf_w)
@@ -532,25 +562,24 @@ def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
 
 ############################## Main Script ###################################
 
-# mpc = MPC()
-# biped = Biped()
-# # forward kinematics
-# pf_w = getFootPositionWorld(x_fb, q, biped)
-# foot = pf_w.reshape(-1)
-# # contact sequence generation
-# if gait == 1:
-#     contact = get_contact_sequence(t, mpc)
-# elif gait == 0:
-#     contact = np.ones((mpc.h, 2))
-# # run MPC
-# start_time = time.time()
-# states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
-# end_time = time.time()
-# if verbose:
-#     print(f"MPC Function execution time: {end_time - start_time} seconds")
-#     print("States: \n", states)
-#     print("Controls: \n", controls)
-# # low level force-to-torque
-# u0 = controls[0, :].reshape(-1,1)
-# tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
-# if verbose: print("Torques: \n", tau)
+mpc = MPC()
+biped = Biped()
+# forward kinematics
+pf_w = getFootPositionWorld(x_fb, q, biped)
+foot = pf_w.reshape(-1)
+# contact sequence generation
+if gait == 1:
+    contact = get_contact_sequence(t, mpc)
+elif gait == 0:
+    contact = np.ones((mpc.h, 2))
+# run MPC
+start_time = time.time()
+states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
+end_time = time.time()
+print(f"MPC Function execution time: {end_time - start_time} seconds")
+print("States: \n", states)
+print("Controls: \n", controls)
+# low level force-to-torque
+u0 = controls[0, :].reshape(-1,1)
+tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
+print("Torques: \n", tau)
