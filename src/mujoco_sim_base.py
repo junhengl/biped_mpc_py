@@ -57,8 +57,7 @@ class MujocoSimBase:
         if self.viewer.is_running():
             if not self.viewer_pause:
                 mujoco.mj_step(self.model, self.data)
-                if (time.time() - self.start_time) % self.viewer_sync_rate < 1e-3:
-                    self.viewer.sync()
+                self.viewer.sync()
         else:
             exit()
 

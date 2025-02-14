@@ -20,11 +20,16 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     # load the yaml file
+    SIM_DT = 0.001
+    CTRL_DT = 0.02 # 50Hz
+    decimation = int(CTRL_DT/SIM_DT) # number of simulation steps per control step
+
     conf = yaml.load(open(args.conf_path, 'r'), Loader=yaml.FullLoader)
     conf['sim']['headless'] = args.headless
 
     # create the simulation object
     sim = mujoco_sim_base.MujocoSimBase(**conf['sim'])
+    sim.model.opt.timestep = SIM_DT  # set the simulation time step
 
     # initialize the simulation
     sim.reset()
@@ -75,15 +80,16 @@ if __name__ == '__main__':
                 contact = get_contact_sequence(steps/1000, mpc)
             elif gait == 0:
                 contact = np.ones((mpc.h, 2))
-            t = steps/1000
-            print('time: ', t)
-
+            t = steps * SIM_DT
+            # print('time: ', t)
             pf_w = getFootPositionWorld(x_fb, q, biped)
             foot = pf_w.reshape(-1)
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
             # mpc.x_cmd[5] = 0.5 + 0.05*np.sin(t * np.pi)
-            if np.remainder(steps, mpc.dt*1000/10) == 0:
+            mpc.x_cmd[9] = 0.2 
+            # if np.remainder(steps, mpc.dt*1000/10) == 0:
+            if steps % decimation == 0:
                 start_time = time.time()
                 states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
                 end_time = time.time()
@@ -91,6 +97,7 @@ if __name__ == '__main__':
                 print("States: \n", states)
                 print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
+            
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
             print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()

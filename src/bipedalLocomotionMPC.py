@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import cvxopt
-import osqp
+# import osqp
 from scipy import sparse
 # import pyqpoases
 np.set_printoptions(suppress=True, precision=2)
