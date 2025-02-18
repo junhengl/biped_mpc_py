@@ -21,8 +21,9 @@ if __name__ == '__main__':
 
     # load the yaml file
     SIM_DT = 0.001
-    CTRL_DT = 0.02 # 50Hz
+    CTRL_DT = 0.004 # 250Hz
     decimation = int(CTRL_DT/SIM_DT) # number of simulation steps per control step
+
 
     conf = yaml.load(open(args.conf_path, 'r'), Loader=yaml.FullLoader)
     conf['sim']['headless'] = args.headless
