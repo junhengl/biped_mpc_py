@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import cvxopt
-# import osqp
+import osqp
 from scipy import sparse
 # import pyqpoases
 np.set_printoptions(suppress=True, precision=2)
@@ -26,12 +26,12 @@ class MPC:
     def __init__(self):
         self.h = 10
         self.dt = 0.04
-        self.x_cmd = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0, 0, 0])  # Command
-        self.Q = np.array([600, 300, 10,  150, 350, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
+        self.x_cmd = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0.5, 0, 0])  # Command
+        self.Q = np.array([600, 300, 100,  350, 350, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
         self.R = np.array([1, 1, 1, 1, 1, 1,   10, 10, 10, 10, 10, 10]) * 1e-5  # Control input weights
         self.kv = 0.01
-        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*1000
-        self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*5
+        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 2]])*500
+        self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*3
         self.swingHeight = 0.1
         self.y_offset = 0.04
 
@@ -64,7 +64,7 @@ def get_contact_sequence(t, mpc):
 
 def get_reference_trajectory(x_fb, mpc):
     x_ref = np.tile(np.append(mpc.x_cmd, 1), (mpc.h, 1)).T
-    # x_ref[:12, 0] = x_fb
+    x_ref[:12, 0] = x_fb
     for i in range(6):
         for k in range(0, mpc.h):
             if mpc.x_cmd[i + 6] != 0:
@@ -287,24 +287,32 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     b_f = np.vstack(b_f)
 
     # Line-foot constraints (preventing toe/heel lift)
-    lt = biped.lt - 0.01
-    lh = biped.lh - 0.02
+    lt = biped.lt - 0.03
+    lh = biped.lh - 0.03
    
     # Construct A_LF1
     A_LF1 = np.vstack([
         np.hstack([-lh * np.array([0, 0, 1]) @ R.T, np.zeros(3), np.array([0, 1, 0]) @ R.T, np.zeros(3)]),
         np.hstack([-lt * np.array([0, 0, 1]) @ R.T, np.zeros(3), -np.array([0, 1, 0]) @ R.T, np.zeros(3)]),
         np.hstack([np.zeros(3), -lh * np.array([0, 0, 1]) @ R.T, np.zeros(3), np.array([0, 1, 0]) @ R.T]),
-        np.hstack([np.zeros(3), -lt * np.array([0, 0, 1]) @ R.T, np.zeros(3), -np.array([0, 1, 0]) @ R.T]),
+        np.hstack([np.zeros(3), -lt * np.array([0, 0, 1]) @ R.T, np.zeros(3), -np.array([0, 1, 0]) @ R.T]), #  ..
+        np.hstack([lt * np.array([0, 1, -biped.mu]) @ R.T, np.zeros(3), np.array([0, -biped.mu, -1]) @ R.T,  np.zeros(3)]),
+        np.hstack([np.zeros(3), lt * np.array([0, 1, -biped.mu]) @ R.T, np.array([0, -biped.mu, -1]) @ R.T,  np.zeros(3)]),
+        np.hstack([lt * np.array([0, -1, -biped.mu]) @ R.T, np.zeros(3), np.array([0, -biped.mu, -1]) @ R.T,  np.zeros(3)]),
+        np.hstack([np.zeros(3), lt * np.array([0, -1, -biped.mu]) @ R.T, np.array([0, -biped.mu, -1]) @ R.T,  np.zeros(3)]), #..
+        np.hstack([lh * np.array([0, 1, -biped.mu]) @ R.T, np.zeros(3), np.array([0, biped.mu, 1]) @ R.T,  np.zeros(3)]),
+        np.hstack([np.zeros(3), lh * np.array([0, 1, -biped.mu]) @ R.T, np.array([0, biped.mu, 1]) @ R.T,  np.zeros(3)]),
+        np.hstack([lh * np.array([0, -1, -biped.mu]) @ R.T, np.zeros(3), np.array([0, biped.mu, -1]) @ R.T,  np.zeros(3)]),
+        np.hstack([np.zeros(3), lh * np.array([0, -1, -biped.mu]) @ R.T, np.array([0, biped.mu, -1]) @ R.T,  np.zeros(3)]),
     ])
 
     # Horizon block expansion
     A_LFh = np.kron(np.eye(mpc.h), A_LF1)
-    padding = np.zeros((4 * mpc.h, 13 * mpc.h))
+    padding = np.zeros((12 * mpc.h, 13 * mpc.h))
     A_LF = np.hstack([padding, A_LFh])
     
     # Define b_LF
-    b_LF = np.zeros((4 * mpc.h, 1))
+    b_LF = np.zeros((12 * mpc.h, 1))
 
     Aineq = np.vstack([A_mu, A_f, A_LFh])
     bineq = np.vstack([b_mu, b_f, b_LF])
@@ -512,7 +520,7 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     # if t == 0:
     #     foot_l = np.zeros([3, 1])
     #     foot_r = np.zeros([3, 1])
-    if percent == 0.0: 
+    if percent < 0.1: 
         if side == 1: # initialize foot position
             foot_l = pf_w
         elif side == -1:
@@ -555,7 +563,7 @@ def lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u):
         tau[5*leg:5*leg+5,:] = Jm.T @ u_w * contact[leg] 
         # swing mapping
         tau[5*leg:5*leg+5,:] += Jf.T @ R.T @ F_swing * -(contact[leg]-1)
-        tau[5*leg,:] = 30*(0 - q0) + 1*(0 - qd[5*leg])
+        tau[5*leg,:] += ( 10*(0 - q0) + 2*(0 - qd[5*leg]) ) * -(contact[leg]-1)
 
     return tau
 
