@@ -6,7 +6,7 @@ from src.transformations import *
 import numpy as np
 import argparse
 import yaml
-
+from pynput import keyboard
 
 if __name__ == '__main__':
 
@@ -42,11 +42,60 @@ if __name__ == '__main__':
     t = 0
     gait = 1 # standing = 0; walking = 1;
 
-    # foot_des_i = np.zeros([3, 1])
-    # foot_l = np.zeros([3, 1])
-    # foot_r = np.zeros([3, 1])
-    # print('foot l', foot_l)
+    key_pressed = False
 
+    # keyboard utils
+    def on_press(key):
+        global key_pressed
+        key_pressed = True
+        try:
+            if key == keyboard.Key.up:
+                mpc.x_cmd[9] = 0.5
+                mpc.x_cmd[3] += mpc.x_cmd[9] * SIM_DT
+                print('mpc.x_cmd[3]:', mpc.x_cmd[3], 'mpc.x_cmd[9]:', mpc.x_cmd[9])
+            elif key == keyboard.Key.down:
+                mpc.x_cmd[9] = -0.5
+                mpc.x_cmd[3] += mpc.x_cmd[9] * SIM_DT
+                print('mpc.x_cmd[3]:', mpc.x_cmd[3], 'mpc.x_cmd[9]:', mpc.x_cmd[9])
+            elif key == keyboard.Key.left:
+                mpc.x_cmd[10] = -0.3
+                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT
+                print('mpc.x_cmd[4]:', mpc.x_cmd[4], 'mpc.x_cmd[10]:', mpc.x_cmd[10])
+            elif key == keyboard.Key.right:
+                mpc.x_cmd[10] = 0.3
+                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT
+                print('mpc.x_cmd[4]:', mpc.x_cmd[4], 'mpc.x_cmd[10]:', mpc.x_cmd[10])
+        except AttributeError:
+            print(f'Special key {key} pressed')
+
+    def on_release(key):
+        global key_pressed
+        key_pressed = False
+        # print(f'Key {key} released')
+        # set current pos as target
+        base_pos = sim.data.qpos[0:3]
+        base_eul = quat_to_euler(sim.data.qpos[3:7])
+        print('stand at current position', base_pos)
+        # print('base_pos:', base_pos, 'base_eul:', base_eul)
+        mpc.x_cmd[2] = base_eul[2]
+        for i in range(3):
+            mpc.x_cmd[3+i] = base_pos[i]
+            mpc.x_cmd[6+i] = 0 
+            mpc.x_cmd[9+i] = 0
+
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    listener.start()
+    print('######################## keyboard setup ########################')
+    print('up    - vx = 0.5  and px += vx * dt')
+    print('down  - vx = -0.5 and px += vx * dt')
+    print('left  - vy = -0.3 and py += vy * dt')
+    print('right - vy = 0.3  and py += vy * dt')
+    print('space - pause/unpause')
+    print('key relase and no key pressed - stand at current position')
+    print('#################################################################')
     while True:
         # pretty_print_low_cmd(cmd)
         if not sim.viewer_pause:
@@ -79,11 +128,7 @@ if __name__ == '__main__':
             # print('time: ', t)
             pf_w = getFootPositionWorld(x_fb, q, biped)
             foot = pf_w.reshape(-1)
-            # mpc.x_cmd[3] = (foot[0] + foot[3])/2
-            # mpc.x_cmd[4] = (foot[1] + foot[4])/2
-            # mpc.x_cmd[5] = 0.5 + 0.05*np.sin(t * np.pi)
-            # mpc.x_cmd[9] = 0.2 
-            # if np.remainder(steps, mpc.dt*1000/10) == 0:
+
             if steps % decimation == 0:
                 start_time = time.time()
                 states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
