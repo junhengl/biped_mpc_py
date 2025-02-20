@@ -1,16 +1,13 @@
 import sys
 sys.path.append('./')
 from src import mujoco_sim_base
-from src.bipedalLocomotionMPC import *
+from src.mpc import *
 from src.transformations import *
 import numpy as np
 import argparse
 import yaml
 
-# TO:CHECK
-# 1. joint zeros and axis direction
-# 2. control desimation and simualtion dt
-# 3. order of tau from MPC 
+
 if __name__ == '__main__':
 
 
@@ -21,7 +18,7 @@ if __name__ == '__main__':
 
     # load the yaml file
     SIM_DT = 0.001
-    CTRL_DT = 0.004 # 250Hz
+    CTRL_DT = 0.02 # 50Hz
     decimation = int(CTRL_DT/SIM_DT) # number of simulation steps per control step
 
 
@@ -44,9 +41,6 @@ if __name__ == '__main__':
 
     t = 0
     gait = 1 # standing = 0; walking = 1;
-    # global foot_des_i 
-    global foot_l 
-    global foot_r 
 
     # foot_des_i = np.zeros([3, 1])
     # foot_l = np.zeros([3, 1])
@@ -88,19 +82,19 @@ if __name__ == '__main__':
             # mpc.x_cmd[3] = (foot[0] + foot[3])/2
             # mpc.x_cmd[4] = (foot[1] + foot[4])/2
             # mpc.x_cmd[5] = 0.5 + 0.05*np.sin(t * np.pi)
-            mpc.x_cmd[9] = 0.2 
+            # mpc.x_cmd[9] = 0.2 
             # if np.remainder(steps, mpc.dt*1000/10) == 0:
             if steps % decimation == 0:
                 start_time = time.time()
                 states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
                 end_time = time.time()
-                print(f"MPC Function execution time: {end_time - start_time} seconds")
-                print("States: \n", states)
-                print("Controls: \n", controls)
+                # print(f"MPC Function execution time: {end_time - start_time} seconds")
+                # print("States: \n", states)
+                # print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
             
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
-            print("Torques: \n", tau)
+            # print("Torques: \n", tau)
             sim.data.ctrl[:] = tau.squeeze()
 
             steps += 1

@@ -9,7 +9,7 @@ class MujocoSimBase:
                 self, 
                 model_path, 
                 headless=False,
-                viewer_fps=24,
+                viewer_fps=30,
                 ):
         # Load the model
         self.model = mujoco.MjModel.from_xml_path(model_path)
@@ -18,7 +18,7 @@ class MujocoSimBase:
         self.data = mujoco.MjData(self.model)
         self.headless = headless
         self.start_time = time.time()
-        self.viewer_sync_rate = 1.0 / viewer_fps
+    
         if self.headless:
             self.step = self.step_headless
         else:
@@ -31,6 +31,8 @@ class MujocoSimBase:
                                                                     ) 
             self.viewer_pause = False
             self.step = self.step_head
+        self.step_count = 0
+        self.frame_skip = int(1000 / viewer_fps)
 
 
     def viewer_key_callback(self,keycode):
@@ -40,6 +42,7 @@ class MujocoSimBase:
             self.viewer.opt.frame = not self.viewer.opt.frame
         elif chr(keycode) == 'Q':
             self.set_robot_on_ground()
+            
 
     def step_headless(self):
         mujoco.mj_step(self.model, self.data)
@@ -52,15 +55,17 @@ class MujocoSimBase:
         self.viewer.sync()
         self.viewer_pause = True
 
-
     def step_head(self):
         if self.viewer.is_running():
             if not self.viewer_pause:
                 mujoco.mj_step(self.model, self.data)
-                self.viewer.sync()
+
+                self.step_count = (self.step_count + 1) % self.frame_skip
+                if self.step_count == 0:
+                    self.viewer.sync()
+                
         else:
             exit()
-
 
     def obj_name2id(self,name,type='body'):
         type = type.upper()
