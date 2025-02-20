@@ -10,7 +10,6 @@ from pynput import keyboard
 
 if __name__ == '__main__':
 
-
     argparser = argparse.ArgumentParser(description='Run the simulation')
     argparser.add_argument('--conf_path', type=str, help='Path to the configuration file', default='config/default.yaml')
     argparser.add_argument('--headless', default=False,action='store_true', help='Run the simulation in headless mode')
@@ -49,9 +48,10 @@ if __name__ == '__main__':
         global key_pressed
         key_pressed = True
         try:
+            print('step:',steps,end=' ')
             if key == keyboard.Key.up:
                 mpc.x_cmd[9] = 0.5
-                mpc.x_cmd[3] += mpc.x_cmd[9] * SIM_DT
+                mpc.x_cmd[3] += mpc.x_cmd[9] * SIM_DT 
                 print('mpc.x_cmd[3]:', mpc.x_cmd[3], 'mpc.x_cmd[9]:', mpc.x_cmd[9])
             elif key == keyboard.Key.down:
                 mpc.x_cmd[9] = -0.5
@@ -59,30 +59,19 @@ if __name__ == '__main__':
                 print('mpc.x_cmd[3]:', mpc.x_cmd[3], 'mpc.x_cmd[9]:', mpc.x_cmd[9])
             elif key == keyboard.Key.left:
                 mpc.x_cmd[10] = -0.3
-                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT
+                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT 
                 print('mpc.x_cmd[4]:', mpc.x_cmd[4], 'mpc.x_cmd[10]:', mpc.x_cmd[10])
             elif key == keyboard.Key.right:
                 mpc.x_cmd[10] = 0.3
-                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT
+                mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT 
                 print('mpc.x_cmd[4]:', mpc.x_cmd[4], 'mpc.x_cmd[10]:', mpc.x_cmd[10])
+
         except AttributeError:
             print(f'Special key {key} pressed')
 
     def on_release(key):
         global key_pressed
         key_pressed = False
-        # print(f'Key {key} released')
-        # set current pos as target
-        base_pos = sim.data.qpos[0:3]
-        base_eul = quat_to_euler(sim.data.qpos[3:7])
-        print('stand at current position', base_pos)
-        # print('base_pos:', base_pos, 'base_eul:', base_eul)
-        mpc.x_cmd[2] = base_eul[2]
-        for i in range(3):
-            mpc.x_cmd[3+i] = base_pos[i]
-            mpc.x_cmd[6+i] = 0 
-            mpc.x_cmd[9+i] = 0
-
         if key == keyboard.Key.esc:
             # Stop listener
             return False
@@ -99,7 +88,15 @@ if __name__ == '__main__':
     while True:
         # pretty_print_low_cmd(cmd)
         if not sim.viewer_pause:
-            
+            if not key_pressed:
+                base_pos = sim.data.qpos[0:3]
+                base_eul = quat_to_euler(sim.data.qpos[3:7])
+                mpc.x_cmd[2] = base_eul[2] # yaw
+                mpc.x_cmd[3] = base_pos[0] # x
+                mpc.x_cmd[4] = base_pos[1] # y
+                for i in range(3):
+                    mpc.x_cmd[6+i] = 0 
+                    mpc.x_cmd[9+i] = 0
             base_pos = sim.data.qpos[0:3]
             base_quat = sim.data.qpos[3:7]
             base_eul = quat_to_euler(base_quat)
@@ -147,5 +144,3 @@ if __name__ == '__main__':
                 break
     
         sim.step()
-
-
