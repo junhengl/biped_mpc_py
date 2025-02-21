@@ -38,6 +38,13 @@ if __name__ == '__main__':
     biped = Biped()
     u0 = np.zeros([12,1])
 
+    # initialize target pose
+    x_des = 0
+    y_des = 0
+    yaw_des = 0
+    pos_range = 0.1
+    yaw_range = 0.1
+
     t = 0
     gait = 1 # standing = 0; walking = 1;
 
@@ -65,6 +72,8 @@ if __name__ == '__main__':
                 mpc.x_cmd[10] = 0.3
                 mpc.x_cmd[4] += mpc.x_cmd[10] * SIM_DT 
                 print('mpc.x_cmd[4]:', mpc.x_cmd[4], 'mpc.x_cmd[10]:', mpc.x_cmd[10])
+            elif key == keyboard.Key.rshift:
+                gait = 1
 
         except AttributeError:
             print(f'Special key {key} pressed')
@@ -91,17 +100,34 @@ if __name__ == '__main__':
             if not key_pressed:
                 base_pos = sim.data.qpos[0:3]
                 base_eul = quat_to_euler(sim.data.qpos[3:7])
-                mpc.x_cmd[2] = base_eul[2] # yaw
-                mpc.x_cmd[3] = base_pos[0] # x
-                mpc.x_cmd[4] = base_pos[1] # y
+                # mpc.x_cmd[2] = base_eul[2] # yaw
+                # mpc.x_cmd[3] = base_pos[0] # x
+                # mpc.x_cmd[4] = base_pos[1] # y ## TODO not update desired command based on feedback everyloop
                 for i in range(3):
                     mpc.x_cmd[6+i] = 0 
                     mpc.x_cmd[9+i] = 0
             base_pos = sim.data.qpos[0:3]
             base_quat = sim.data.qpos[3:7]
-            base_eul = quat_to_euler(base_quat)
+            # base_eul = quat_to_euler(base_quat) # rotation sequence of this function is wrong
+            base_eul = euler_from_quaternion(base_quat[1],base_quat[2],base_quat[3],base_quat[0])
             body_tvel = sim.data.qvel[0:3]
             body_avel = sim.data.qvel[3:6]
+            Rotm = eul2rotm(base_eul)
+
+            # update desired command:
+            if base_pos[0] - x_des >= pos_range or base_pos[0] - x_des <= - pos_range:
+                x_des = base_pos[0]
+            if base_pos[1] - y_des >= pos_range or base_pos[1] - y_des <= - pos_range:
+                y_des = base_pos[1]
+            if base_eul[2] - yaw_des >= yaw_range or base_eul[2] - yaw_des <= - yaw_range:
+                yaw_des = base_eul[2]
+            mpc.x_cmd[2] = yaw_des
+            mpc.x_cmd[3] = x_des
+            mpc.x_cmd[4] = y_des
+
+            mpc.x_cmd[8] = 1.5
+            print('quat: ', sim.data.qpos[3:7])
+            print('eul: ', base_eul)
 
             # joint: l_hip_yaw, l_hip_roll, l_hip_pitch, l_knee, l_ankle, r_hip_yaw, r_hip_roll, r_hip_pitch, r_knee, r_ankle
             jpos = sim.data.qpos[7:]
@@ -110,7 +136,7 @@ if __name__ == '__main__':
             x_fb = np.concatenate([
                                     base_eul,
                                     base_pos,
-                                    body_avel,
+                                    Rotm@body_avel,
                                     body_tvel,
                                     ])     
             q = jpos

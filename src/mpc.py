@@ -19,7 +19,7 @@ foot = np.array([0,-0.1,0, 0,0.1,0])
 q = np.array([0,0,-np.pi/4,np.pi/2,-np.pi/4, 0,0,-np.pi/4,np.pi/2,-np.pi/4])
 qd = np.zeros((10))
 t = 0
-gait = 0 # standing = 0; walking = 1;
+gait = 1 # standing = 0; walking = 1;
 verbose = False
 solvers.options['show_progress'] = verbose
 ################## functions #####################
@@ -29,10 +29,10 @@ class MPC:
         self.h = 10
         self.dt = 0.04
         self.x_cmd = np.array([0, 0, 0, 0, 0, 0.55, 0, 0, 0, 0.0, 0, 0])  # Command
-        self.Q = np.array([600, 300, 100,  350, 350, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
+        self.Q = np.array([600, 300, 200,  350, 350, 500,  1, 1, 1,   1, 1, 1, 1])  # State weights
         self.R = np.array([1, 1, 1, 1, 1, 1,   10, 10, 10, 10, 10, 10]) * 1e-5  # Control input weights
         self.kv = 0.01
-        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 2]])*500
+        self.kp = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 2]])*700
         self.kd = np.array([[1, 0, 0],[0, 1, 0],[0, 0, 1]])*3
         self.swingHeight = 0.1
         self.y_offset = 0.04
@@ -289,8 +289,8 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     b_f = np.vstack(b_f)
 
     # Line-foot constraints (preventing toe/heel lift)
-    lt = biped.lt - 0.03
-    lh = biped.lh - 0.03
+    lt = biped.lt - 0.02
+    lh = biped.lh - 0.02
    
     # Construct A_LF1
     A_LF1 = np.vstack([
@@ -507,14 +507,16 @@ def getFootPositionWorld(x_fb, q, biped):
 def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     global foot_r, foot_l
     yaw = x_fb[2]
+    R = eul2rotm(x_fb[0:3])
     y_offset = mpc.y_offset
+    offset = R @ np.array([[0],[side * y_offset],[0]])
     foot_des_x = (
         x_fb[3] + x_fb[9] * 1 / 2 * mpc.h / 2 * mpc.dt
-        + mpc.kv * (x_fb[3] - mpc.x_cmd[3]) - y_offset * side * np.sin(yaw)
+        + mpc.kv * (x_fb[3] - mpc.x_cmd[3])
     )
     foot_des_y = (
         x_fb[4] + x_fb[10] * 1 / 2 * mpc.h / 2 * mpc.dt
-        + mpc.kv * (x_fb[4] - mpc.x_cmd[4]) + y_offset * side * np.cos(yaw)
+        + mpc.kv * (x_fb[4] - mpc.x_cmd[4])
     )
     t = np.remainder(t, mpc.dt * mpc.h / 2)
     foot_des_z = mpc.swingHeight * np.sin(np.pi * t / (mpc.dt * mpc.h / 2))
@@ -536,7 +538,7 @@ def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     foot_des_x = foot_i[0,0] + percent*(foot_des_x - foot_i[0,0])
     foot_des_y = foot_i[1,0] + percent*(foot_des_y - foot_i[1,0])
     # print('foot_i', foot_i)
-    foot_des = np.array([[foot_des_x],[foot_des_y],[foot_des_z]])
+    foot_des = np.array([[foot_des_x],[foot_des_y],[foot_des_z]]) + offset
     foot_v_des = np.zeros((3,1))
     F_swing = mpc.kp@(foot_des - pf_w) + mpc.kd@(foot_v_des - vf_w)
     return F_swing
