@@ -158,7 +158,7 @@ def get_simplified_dynamics(mpc, biped, x_ref, foot_ref):
     yaw = x_ref[2]
     pitch = x_ref[1]
     R = eul2rotm(x_ref[0:3])
-    I = R.T @ biped.I @ R
+    I = R @ biped.I @ R.T
 
     # Compute Ac matrix
     R_inv = np.linalg.inv(np.array([
@@ -506,14 +506,15 @@ def getFootPositionWorld(x_fb, q, biped):
 
 def swingLegControl(x_fb, t, pf_w, vf_w, mpc, side):
     global foot_r, foot_l
+    yaw = x_fb[2]
     y_offset = mpc.y_offset
     foot_des_x = (
         x_fb[3] + x_fb[9] * 1 / 2 * mpc.h / 2 * mpc.dt
-        + mpc.kv * (x_fb[3] - mpc.x_cmd[3])
+        + mpc.kv * (x_fb[3] - mpc.x_cmd[3]) - y_offset * side * np.sin(yaw)
     )
     foot_des_y = (
         x_fb[4] + x_fb[10] * 1 / 2 * mpc.h / 2 * mpc.dt
-        + mpc.kv * (x_fb[4] - mpc.x_cmd[4]) + y_offset*side
+        + mpc.kv * (x_fb[4] - mpc.x_cmd[4]) + y_offset * side * np.cos(yaw)
     )
     t = np.remainder(t, mpc.dt * mpc.h / 2)
     foot_des_z = mpc.swingHeight * np.sin(np.pi * t / (mpc.dt * mpc.h / 2))
