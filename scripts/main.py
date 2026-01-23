@@ -3,10 +3,14 @@ sys.path.append('./')
 from src import mujoco_sim_base
 from src.mpc import *
 from src.transformations import *
+from src.mpc_visualizer import visualize_predictions_in_viewer
 import numpy as np
 import argparse
 import yaml
 from pynput import keyboard
+
+# source /home/junhengl/biped_mpc_py/.venv/bin/activate
+# python scripts/main.py
 
 if __name__ == '__main__':
 
@@ -125,9 +129,9 @@ if __name__ == '__main__':
             mpc.x_cmd[3] = x_des
             mpc.x_cmd[4] = y_des
 
-            mpc.x_cmd[8] = 1.5
-            print('quat: ', sim.data.qpos[3:7])
-            print('eul: ', base_eul)
+            mpc.x_cmd[8] = 0
+            # print('quat: ', sim.data.qpos[3:7])
+            # print('eul: ', base_eul)
 
             # joint: l_hip_yaw, l_hip_roll, l_hip_pitch, l_knee, l_ankle, r_hip_yaw, r_hip_roll, r_hip_pitch, r_knee, r_ankle
             jpos = sim.data.qpos[7:]
@@ -154,12 +158,30 @@ if __name__ == '__main__':
 
             if steps % decimation == 0:
                 start_time = time.time()
-                states, controls = solve_mpc(x_fb, t, foot, mpc, biped, contact)
+                states, controls, foot_ref, states_analytical = solve_mpc(x_fb, t, foot, mpc, biped, contact)
                 end_time = time.time()
                 # print(f"MPC Function execution time: {end_time - start_time} seconds")
                 # print("States: \n", states)
                 # print("Controls: \n", controls)
                 u0 = controls[0, :].reshape(-1,1)
+                
+                # Visualize MPC predictions in real-time
+                if states is not None and len(states) > 0:
+                    # Update prediction body positions in the model
+                    sim.update_mpc_prediction_visualization(states)
+                    
+                    # Update foot trajectory visualization
+                    if foot_ref is not None:
+                        sim.update_foot_trajectory_visualization(foot_ref)
+                    
+                    # Update analytical trajectory visualization
+                    if states_analytical is not None:
+                        sim.update_analytical_prediction_visualization(states_analytical)
+                    
+                    # Print trajectory info to console
+                    current_com = np.array([base_pos[0], base_pos[1], base_pos[2]])
+                    predicted_com = states[:, 3:6]
+                    visualize_predictions_in_viewer(sim.viewer if not args.headless else None, predicted_com, current_com)
             
             tau = lowLevelControl(x_fb, t, pf_w, q, qd, mpc, biped, contact, u0)
             # print("Torques: \n", tau)

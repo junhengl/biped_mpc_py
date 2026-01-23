@@ -149,6 +149,134 @@
         </body>
       </body>
     </body>
+
+    <!-- MPC Prediction visualization mocap bodies -->
+    <body name="pred_0" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.02" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_1" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.019" rgba="0.2 0.9 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_2" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.018" rgba="0.4 0.8 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_3" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.017" rgba="0.6 0.7 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_4" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.016" rgba="0.8 0.6 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_5" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.015" rgba="1.0 0.5 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_6" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.014" rgba="1.0 0.4 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_7" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.013" rgba="1.0 0.3 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_8" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.012" rgba="1.0 0.2 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_9" mocap="true" pos="0 0 0.55">
+      <geom type="sphere" size="0.011" rgba="1.0 0.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+
+    <!-- Left foot trajectory visualization mocap bodies (blue) -->
+    <body name="foot_l_0" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.020" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_1" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.019" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_2" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.018" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_3" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.017" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_4" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.016" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_5" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.015" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_6" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.014" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_7" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.013" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_8" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.012" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_l_9" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.011" rgba="0.0 0.3 1.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+
+    <!-- Right foot trajectory visualization mocap bodies (red) -->
+    <body name="foot_r_0" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.020" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_1" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.019" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_2" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.018" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_3" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.017" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_4" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.016" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_5" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.015" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_6" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.014" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_7" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.013" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_8" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.012" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="foot_r_9" mocap="true" pos="0 0 0">
+      <geom type="sphere" size="0.011" rgba="1.0 0.0 0.0 0.6" contype="0" conaffinity="0" group="2"/>
+    </body>
+
+    <!-- Analytical COM trajectory visualization mocap bodies (green cylinders) -->
+    <body name="pred_analytical_0" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.012 0.01" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_1" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.011 0.009" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_2" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.010 0.008" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_3" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.009 0.007" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_4" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.008 0.006" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_5" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.007 0.005" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_6" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.006 0.004" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_7" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.005 0.003" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_8" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.004 0.002" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
+    <body name="pred_analytical_9" mocap="true" pos="0 0 0">
+      <geom type="cylinder" size="0.003 0.001" rgba="0.0 1.0 0.0 0.5" contype="0" conaffinity="0" group="2"/>
+    </body>
   </worldbody>
 
   <sensor>
@@ -232,7 +360,7 @@
 	<contact>
 		<exclude body1="l_thigh" body2="l_hip" />
 		<exclude body1="r_thigh" body2="r_hip" />
-	</contact> 
+	</contact>
 
   <keyframe>
     <key name="home" qpos='0 0 0.55 1 0 0 0 0 0 0.7848373651504517 -1.571472287 0.7848373651504517 0 0 0.7848373651504517 -1.571472287 0.7848373651504517' />

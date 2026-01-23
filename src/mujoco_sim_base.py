@@ -21,6 +21,7 @@ class MujocoSimBase:
     
         if self.headless:
             self.step = self.step_headless
+            self.viewer_pause = False
         else:
             self.viewer = mujoco.viewer.launch_passive(
                                                                     self.model, 
@@ -31,6 +32,8 @@ class MujocoSimBase:
                                                                     ) 
             self.viewer_pause = False
             self.step = self.step_head
+            # Store current prediction states for visualization
+            self.mpc_states = None
         self.step_count = 0
         self.frame_skip = int(1000 / viewer_fps)
 
@@ -52,8 +55,9 @@ class MujocoSimBase:
         mujoco.mj_resetData(self.model,self.data) 
         self.data.qpos[:] = init_qp
         self.step()
-        self.viewer.sync()
-        self.viewer_pause = True
+        if not self.headless:
+            self.viewer.sync()
+            self.viewer_pause = True
 
     def step_head(self):
         if self.viewer.is_running():
@@ -115,3 +119,108 @@ class MujocoSimBase:
         for _ in range(10):
             self.step()
         self.viewer.sync()
+
+    def update_mpc_prediction_visualization(self, states):
+        """
+        Update visualization of MPC state predictions by moving mocap bodies.
+        Mocap bodies are designed for kinematic manipulation without physics.
+        
+        Args:
+            states: (h, 13) array where indices 3-5 are x, y, z positions
+        """
+        if self.headless or not hasattr(self, 'viewer'):
+            return
+        
+        if states is None or len(states) == 0:
+            return
+        
+        # Update prediction mocap body positions
+        # Each mocap body's ID in data.mocap_pos corresponds to its body_mocapid
+        try:
+            for i in range(min(len(states), 10)):  # Max 10 prediction spheres
+                body_name = f"pred_{i}"
+                body_id = self.obj_name2id(body_name, type='body')
+                mocap_id = self.model.body_mocapid[body_id]
+                
+                # Update mocap body position directly
+                if mocap_id >= 0:
+                    self.data.mocap_pos[mocap_id] = states[i, 3:6]
+                
+        except Exception as e:
+            # Silently ignore if bodies don't exist or other issues
+            pass
+
+    def update_foot_trajectory_visualization(self, foot_ref):
+        """
+        Update visualization of foot trajectories by moving foot mocap bodies.
+        
+        Args:
+            foot_ref: (6, h) array where first 3 rows are left foot positions, 
+                     next 3 rows are right foot positions across horizon
+        """
+        if self.headless or not hasattr(self, 'viewer'):
+            return
+        
+        if foot_ref is None or foot_ref.size == 0:
+            return
+        
+        # foot_ref shape is (6, h) where:
+        # foot_ref[0:3, :] = left foot positions
+        # foot_ref[3:6, :] = right foot positions
+        try:
+            h = foot_ref.shape[1]
+            
+            # Update left foot trajectory
+            for i in range(min(h, 10)):
+                body_name = f"foot_l_{i}"
+                try:
+                    body_id = self.obj_name2id(body_name, type='body')
+                    mocap_id = self.model.body_mocapid[body_id]
+                    if mocap_id >= 0:
+                        self.data.mocap_pos[mocap_id] = foot_ref[0:3, i]
+                except:
+                    pass
+            
+            # Update right foot trajectory
+            for i in range(min(h, 10)):
+                body_name = f"foot_r_{i}"
+                try:
+                    body_id = self.obj_name2id(body_name, type='body')
+                    mocap_id = self.model.body_mocapid[body_id]
+                    if mocap_id >= 0:
+                        self.data.mocap_pos[mocap_id] = foot_ref[3:6, i]
+                except:
+                    pass
+                
+        except Exception as e:
+            # Silently ignore if bodies don't exist or other issues
+            pass
+
+    def update_analytical_prediction_visualization(self, states_analytical):
+        """
+        Update visualization of analytical state predictions by moving mocap cylinder bodies.
+        Cylinders differentiate analytical predictions from optimization-based ones.
+        
+        Args:
+            states_analytical: (h, 13) array where indices 3-5 are x, y, z positions
+        """
+        if self.headless or not hasattr(self, 'viewer'):
+            return
+        
+        if states_analytical is None or len(states_analytical) == 0:
+            return
+        
+        # Update analytical prediction mocap body positions
+        try:
+            for i in range(min(len(states_analytical), 10)):  # Max 10 prediction cylinders
+                body_name = f"pred_analytical_{i}"
+                body_id = self.obj_name2id(body_name, type='body')
+                mocap_id = self.model.body_mocapid[body_id]
+                
+                # Update mocap body position directly
+                if mocap_id >= 0:
+                    self.data.mocap_pos[mocap_id] = states_analytical[i, 3:6]
+                
+        except Exception as e:
+            # Silently ignore if bodies don't exist or other issues
+            pass

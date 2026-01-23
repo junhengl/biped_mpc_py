@@ -221,19 +221,19 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
             Bqp[i][j] = np.zeros((13, 12))
     Bqp = np.block(Bqp)
 
-    # # construct dynamics constraints:
-    # Aeq_dyn = np.zeros((13*mpc.h, 25*mpc.h))
-    # Beq_dyn = []
+    # construct dynamics constraints:
+    Aeq_dyn = np.zeros((13*mpc.h, 25*mpc.h))
+    Beq_dyn = []
     one = np.array([1])
     x_0 = np.concatenate((x_fb, one), axis=0).reshape(-1,1)
-    # Beq_0 = np.dot(A_matrices[0], x_0)
-    # Beq_dyn.append(Beq_0)
-    # for i in range(mpc.h):
-    #     Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
-    #     Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
-    #     if i > 0:
-    #         Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
-    #         Beq_dyn.append(np.zeros(13))
+    Beq_0 = np.dot(A_matrices[0], x_0)
+    Beq_dyn.append(Beq_0.flatten())
+    for i in range(mpc.h):
+        Aeq_dyn[13*i:13*(i+1),13*i:13*(i+1)] = np.eye(13)
+        Aeq_dyn[13*i:13*(i+1),13*mpc.h+12*i:13*mpc.h+12*(i+1)] = -B_matrices[i]
+        if i > 0:
+            Aeq_dyn[13*i:13*(i+1),13*(i-1):13*(i)] = -A_matrices[i]
+            Beq_dyn.append(np.zeros(13))
 
     # zero Mx
     Moment_selection = np.array([1, 0, 0])  # Define Moment_selection
@@ -248,10 +248,10 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     padding = np.zeros((2 * mpc.h, 13 * mpc.h))
     A_M = np.hstack([padding, A_M_h])
     b_M = np.zeros(2 * mpc.h)
-    # Aeq = np.vstack([Aeq_dyn, A_M])
-    # beq = np.hstack([np.hstack(Beq_dyn), b_M])
-    Aeq = A_M_h
-    beq = b_M.reshape(-1,1)
+    Aeq = np.vstack([Aeq_dyn, A_M])
+    beq = np.hstack([np.hstack(Beq_dyn), b_M.reshape(-1,)])
+    # Aeq = A_M_h
+    # beq = b_M.reshape(-1,1)
 
     # construct inequality constraints:
     # Friction pyramid constraints
@@ -266,13 +266,13 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
         [*[0] * 3, 0, -1, -biped.mu, *[0] * 6],
     ])
     A_mu = np.kron(np.eye(mpc.h), A_mu1)
-    # A_mu = np.hstack([np.zeros((A_mu.shape[0], 13*mpc.h)),A_mu])
+    A_mu = np.hstack([np.zeros((A_mu.shape[0], 13*mpc.h)),A_mu])
     b_mu = np.zeros((8*mpc.h, 1))
 
     # force saturations
     A_f1 = np.vstack([np.eye(12), -np.eye(12)])
     A_f = np.kron(np.eye(mpc.h), A_f1)
-    # A_f = np.hstack([np.zeros((A_f.shape[0], 13*mpc.h)),A_f])
+    A_f = np.hstack([np.zeros((A_f.shape[0], 13*mpc.h)),A_f])
     b_f = []
     for k in range(mpc.h):
         col_k = np.concatenate([
@@ -316,27 +316,28 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     # Define b_LF
     b_LF = np.zeros((12 * mpc.h, 1))
 
-    Aineq = np.vstack([A_mu, A_f, A_LFh])
+    Aineq = np.vstack([A_mu, A_f, A_LF])
     bineq = np.vstack([b_mu, b_f, b_LF])
 
 
     # Objective function 
-    # H = 2*np.block([
-    #     [np.kron(np.eye(mpc.h), np.diag(mpc.Q)), np.zeros((13 * mpc.h, 12 * mpc.h))],
-    #     [np.zeros((12 * mpc.h, 13 * mpc.h)), np.kron(np.eye(mpc.h), np.diag(mpc.R))]
-    # ])
-    # x_ref_flat = x_ref.T.flatten()
-    # f = 2*np.hstack([
-    #     -np.kron(np.eye(mpc.h), np.diag(mpc.Q)) @ x_ref_flat,
-    #     np.zeros(12 * mpc.h)
-    # ])
+    H = 2*np.block([
+        [np.kron(np.eye(mpc.h), np.diag(mpc.Q)), np.zeros((13 * mpc.h, 12 * mpc.h))],
+        [np.zeros((12 * mpc.h, 13 * mpc.h)), np.kron(np.eye(mpc.h), np.diag(mpc.R))]
+    ])
+    x_ref_flat = x_ref.T.flatten()
+    f = 2*np.hstack([
+        -np.kron(np.eye(mpc.h), np.diag(mpc.Q)) @ x_ref_flat,
+        np.zeros(12 * mpc.h)
+    ])
     # MPC->QP math
-    L = np.kron(np.eye(mpc.h), np.diag(mpc.Q))
-    K = np.kron(np.eye(mpc.h), np.diag(mpc.R))
-    H = 2 * (Bqp.T @ L @ Bqp + K)
-    f = 2 * Bqp.T @ L @ (Aqp @ x_0 - y)
+    # L = np.kron(np.eye(mpc.h), np.diag(mpc.Q))
+    # K = np.kron(np.eye(mpc.h), np.diag(mpc.R))
+    # H = 2 * (Bqp.T @ L @ Bqp + K)
+    # f = 2 * Bqp.T @ L @ (Aqp @ x_0 - y)
 
     # Convert to cvxopt format
+    start_time = time.time()
     H_cvx = cvxopt.matrix(H)
     f_cvx = cvxopt.matrix(f)
     Aeq_cvx = cvxopt.matrix(Aeq)
@@ -356,9 +357,30 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
 
     # Extract states and controls from the solution
     x_opt = np.array(solution['x']).flatten()
-    # states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
-    # controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
-    controls = x_opt.reshape((mpc.h,12))
+    states = x_opt[:13 * mpc.h].reshape((mpc.h,13))
+    controls = x_opt[13 * mpc.h:].reshape((mpc.h,12))
+    end_time = time.time()
+    print("CVXOPT solution time: %.6f seconds" % (end_time - start_time))
+    # controls = x_opt.reshape((mpc.h,12))
+
+    # Solve analytically with equality constraints only (dynamics + zero moment)
+    # No inequality constraint enforcement - fast closed-form solution
+    start_time_analytical = time.time()
+    
+    try:
+        H_inv = np.linalg.inv(H)
+        temp = Aeq @ H_inv @ Aeq.T    
+        temp_inv = np.linalg.inv(temp)
+        x_opt_analytical = -(H_inv @ f.reshape(-1, 1) + H_inv @ Aeq.T @ temp_inv @ (Aeq @ H_inv @ f.reshape(-1, 1) + beq.reshape(-1, 1)))
+        states_analytical = x_opt_analytical[:13 * mpc.h].reshape((mpc.h,13))
+        controls_analytical = x_opt_analytical[13 * mpc.h:].reshape((mpc.h,12))
+    except np.linalg.LinAlgError:
+        # If solution fails, use cvxopt solution as fallback
+        states_analytical = states.copy()
+        controls_analytical = controls.copy()
+    
+    end_time_analytical = time.time()
+    print("Analytical solution time: %.6f seconds" % (end_time_analytical - start_time_analytical))
 
     # # Using osqp to solve
     # A = np.vstack([Aineq, Aeq])  # Combine inequality and equality constraints
@@ -381,8 +403,7 @@ def solve_mpc(x_fb, t, foot, mpc, biped, contact):
     # x_opt = result.x
     # controls = x_opt.reshape((mpc.h, 12))
 
-    states = []
-    return states, controls
+    return states, controls, foot_ref, states_analytical
 
 def getLegKinematics(q0, q1, q2, q3, q4, side):
     # Initialize the Jm matrix
